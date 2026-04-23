@@ -1,0 +1,13 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "outputDirectory": ".next",
+  "installCommand": "npm install --legacy-peer-deps",
+  "regions": ["iad1"],
+  "env": {
+    "NEXT_PUBLIC_INITIA_CHAIN_ID": "initiation-2",
+    "NEXT_PUBLIC_INITIA_RPC_URL": "https://rpc.testnet.initia.xyz",
+    "NEXT_PUBLIC_INITIA_REST_URL": "https://rest.testnet.initia.xyz",
+    "NEXT_PUBLIC_FEE_DENOM": "uinit"
+  }
+}
