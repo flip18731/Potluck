@@ -1,11 +1,8 @@
 "use client"
 
-import { UsernameBadge } from "@/components/identity/UsernameBadge"
-import { Badge } from "@/components/ui/badge"
+import { Avatar } from "@/components/ui/Avatar"
 import { fromMicro, INITIA_TESTNET } from "@/lib/initia/chain"
-import { formatIdentity } from "@/lib/initia/username"
 import { formatDistanceToNow } from "date-fns"
-import { CheckCircle, Clock, Receipt, ExternalLink, ArrowUpRight } from "lucide-react"
 
 interface Expense {
   id: string
@@ -37,13 +34,14 @@ interface ExpenseFeedProps {
   expenses: Expense[]
   contributions: Contribution[]
   members: Member[]
+  currentUserAddress?: string
 }
 
 type FeedItem =
   | { type: "expense"; data: Expense; date: Date }
   | { type: "contribution"; data: Contribution; date: Date }
 
-export function ExpenseFeed({ expenses, contributions, members }: ExpenseFeedProps) {
+export function ExpenseFeed({ expenses, contributions, members, currentUserAddress }: ExpenseFeedProps) {
   const feed: FeedItem[] = [
     ...expenses.map((e) => ({ type: "expense" as const, data: e, date: new Date(e.created_at) })),
     ...contributions.map((c) => ({ type: "contribution" as const, data: c, date: new Date(c.created_at) })),
@@ -53,112 +51,119 @@ export function ExpenseFeed({ expenses, contributions, members }: ExpenseFeedPro
 
   if (feed.length === 0) {
     return (
-      <div className="bg-white rounded-xl border border-zinc-200 p-6 text-center">
-        <Receipt className="h-10 w-10 text-zinc-300 mx-auto mb-3" />
-        <p className="text-zinc-500 font-medium">Nothing on the spread yet</p>
-        <p className="text-sm text-zinc-400">Bring your share or add the first expense</p>
+      <div style={{ padding: "24px 0", textAlign: "center", fontSize: 13, color: "#C4BAB0" }}>
+        Nothing on the spread yet
       </div>
     )
   }
 
   return (
-    <div className="bg-white rounded-xl border border-zinc-200">
-      <div className="p-4 border-b border-zinc-100">
-        <h2 className="font-semibold text-zinc-900">Activity</h2>
-      </div>
-      <div className="divide-y divide-zinc-100">
-        {feed.map((item) => {
-          if (item.type === "contribution") {
-            const c = item.data
-            const member = getMember(c.member_address)
-            return (
-              <div key={`c-${c.id}`} className="p-4 flex items-start gap-3 hover:bg-zinc-50 animate-fade-in">
-                <div className="h-8 w-8 rounded-full bg-emerald-100 flex items-center justify-center flex-shrink-0">
-                  <ArrowUpRight className="h-4 w-4 text-emerald-600" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1 flex-wrap">
-                    <UsernameBadge
-                      address={c.member_address}
-                      username={c.member_username || member?.username}
-                      size="sm"
-                    />
-                    <span className="text-sm text-zinc-600">
-                      brought <strong className="text-zinc-900">{fromMicro(c.amount)} INIT</strong> to the table
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-zinc-400 flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {formatDistanceToNow(item.date, { addSuffix: true })}
-                    </span>
-                    <a
-                      href={`${INITIA_TESTNET.explorerUrl}/txs/${c.tx_hash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-emerald-600 hover:underline flex items-center gap-0.5"
-                    >
-                      verify
-                      <ExternalLink className="h-2.5 w-2.5" />
-                    </a>
-                  </div>
-                </div>
-                <Badge variant="success">{fromMicro(c.amount)} INIT</Badge>
-              </div>
-            )
-          }
+    <div>
+      {feed.map((item, i) => {
+        if (item.type === "contribution") {
+          const c = item.data
+          const handle = c.member_username || c.member_address.slice(0, 8)
+          const displayName = c.member_username || undefined
+          const isMe = c.member_address === currentUserAddress
 
-          const e = item.data
-          const payer = getMember(e.paid_by_address)
           return (
-            <div key={`e-${e.id}`} className="p-4 flex items-start gap-3 hover:bg-zinc-50 animate-fade-in">
-              <div className="h-8 w-8 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
-                <Receipt className="h-4 w-4 text-amber-600" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-zinc-900">{e.description}</p>
-                <div className="flex items-center gap-1 mt-0.5 flex-wrap text-sm text-zinc-500">
-                  <span>Paid by</span>
-                  <UsernameBadge
-                    address={e.paid_by_address}
-                    username={e.paid_by_username || payer?.username}
-                    size="sm"
-                  />
-                  <span>• split {e.split_between.length} ways</span>
+            <div
+              key={`c-${c.id}`}
+              className="fade-slide"
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                gap: 12,
+                padding: "11px 0",
+                borderBottom: "1px solid #EDE8E1",
+                animationDelay: `${200 + i * 40}ms`,
+              }}
+            >
+              <Avatar handle={handle} displayName={displayName} size={28} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, fontWeight: 480, color: "#1C1917", lineHeight: 1.3 }}>
+                  {isMe ? "You" : (displayName || handle)} brought {fromMicro(c.amount)} INIT
                 </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-zinc-400 flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {formatDistanceToNow(item.date, { addSuffix: true })}
-                  </span>
-                  {e.reimbursed && e.reimburse_tx_hash && (
+                <div style={{ fontSize: 12, color: "#A8A29E", marginTop: 2 }}>
+                  {formatDistanceToNow(item.date, { addSuffix: true })}
+                  {" · "}
+                  <a
+                    href={`${INITIA_TESTNET.explorerUrl}/txs/${c.tx_hash}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: "#C07A38", textDecoration: "none" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+                    onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+                  >
+                    verify ↗
+                  </a>
+                </div>
+              </div>
+              <div className="tabular" style={{ fontSize: 14, fontWeight: 500, color: "#1C1917", flexShrink: 0 }}>
+                +{fromMicro(c.amount)} INIT
+              </div>
+            </div>
+          )
+        }
+
+        const e = item.data
+        const payer = getMember(e.paid_by_address)
+        const handle = e.paid_by_username || e.paid_by_address.slice(0, 8)
+        const displayName = e.paid_by_username || undefined
+        const isMe = e.paid_by_address === currentUserAddress
+
+        return (
+          <div
+            key={`e-${e.id}`}
+            className="fade-slide"
+            style={{
+              display: "flex",
+              alignItems: "flex-start",
+              gap: 12,
+              padding: "11px 0",
+              borderBottom: "1px solid #EDE8E1",
+              animationDelay: `${200 + i * 40}ms`,
+            }}
+          >
+            <Avatar handle={handle} displayName={displayName} size={28} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 480, color: "#1C1917", lineHeight: 1.3 }}>
+                {e.description}
+              </div>
+              <div style={{ fontSize: 12, color: "#A8A29E", marginTop: 2 }}>
+                {isMe ? "You paid" : `${displayName || handle} paid`}
+                {" · "}split {e.split_between.length} ways
+                {" · "}{formatDistanceToNow(item.date, { addSuffix: true })}
+                {e.reimbursed && e.reimburse_tx_hash && (
+                  <>
+                    {" · "}
                     <a
                       href={`${INITIA_TESTNET.explorerUrl}/txs/${e.reimburse_tx_hash}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-emerald-600 hover:underline flex items-center gap-0.5"
+                      style={{ color: "#C07A38", textDecoration: "none" }}
+                      onMouseEnter={(ev) => (ev.currentTarget.style.textDecoration = "underline")}
+                      onMouseLeave={(ev) => (ev.currentTarget.style.textDecoration = "none")}
                     >
-                      reimbursement tx
-                      <ExternalLink className="h-2.5 w-2.5" />
+                      reimbursed ↗
                     </a>
-                  )}
-                </div>
-              </div>
-              <div className="flex flex-col items-end gap-1">
-                <span className="text-sm font-medium text-zinc-900">{fromMicro(e.amount)} INIT</span>
-                {e.reimbursed ? (
-                  <Badge variant="success" className="flex items-center gap-1">
-                    <CheckCircle className="h-3 w-3" />
-                    Reimbursed
-                  </Badge>
-                ) : (
-                  <Badge variant="warning">Pending</Badge>
+                  </>
                 )}
               </div>
             </div>
-          )
-        })}
-      </div>
+            <div style={{ textAlign: "right", flexShrink: 0 }}>
+              <div className="tabular" style={{ fontSize: 14, fontWeight: 500, color: "#1C1917" }}>
+                {fromMicro(e.amount)} INIT
+              </div>
+              {e.reimbursed ? (
+                <div style={{ fontSize: 11, color: "#A8A29E", marginTop: 2 }}>Reimbursed</div>
+              ) : (
+                <div style={{ fontSize: 11, color: "#C4BAB0", marginTop: 2 }}>Pending</div>
+              )}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }

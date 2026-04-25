@@ -1,18 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useInterwovenKit } from "@initia/interwovenkit-react"
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { UsernameBadge } from "@/components/identity/UsernameBadge"
+import { Avatar } from "@/components/ui/Avatar"
+import { CTABtn } from "@/components/ui/CTABtn"
 import { toast } from "sonner"
-import { toMicro, fromMicro, INITIA_TESTNET } from "@/lib/initia/chain"
-import { Loader2, UtensilsCrossed } from "lucide-react"
+import { toMicro, fromMicro } from "@/lib/initia/chain"
 import { formatIdentity } from "@/lib/initia/username"
+import { HEARTH } from "@/lib/design/tokens"
 
 interface Member {
   address: string
@@ -24,9 +19,10 @@ interface AddExpenseModalProps {
   members: Member[]
   denom: string
   onSuccess: () => void
+  trigger?: React.ReactNode
 }
 
-export function AddExpenseModal({ poolId, members, denom, onSuccess }: AddExpenseModalProps) {
+export function AddExpenseModal({ poolId, members, denom, onSuccess, trigger }: AddExpenseModalProps) {
   const { address } = useInterwovenKit()
   const [open, setOpen] = useState(false)
   const [description, setDescription] = useState("")
@@ -34,6 +30,13 @@ export function AddExpenseModal({ poolId, members, denom, onSuccess }: AddExpens
   const [paidByAddress, setPaidByAddress] = useState(address || members[0]?.address || "")
   const [splitBetween, setSplitBetween] = useState<string[]>(members.map((m) => m.address))
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false) }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [open])
 
   const toggleSplit = (addr: string) => {
     setSplitBetween((prev) =>
@@ -61,7 +64,7 @@ export function AddExpenseModal({ poolId, members, denom, onSuccess }: AddExpens
           paidByAddress,
           paidByUsername: paidByMember?.username ?? null,
           splitBetween,
-          reimbursedFromPool: true, // Auto-reimburse from treasury
+          reimbursedFromPool: true,
         }),
       })
 
@@ -69,7 +72,7 @@ export function AddExpenseModal({ poolId, members, denom, onSuccess }: AddExpens
       if (!res.ok) throw new Error(data.error || "Failed to add expense")
 
       const paidByDisplay = formatIdentity(paidByAddress, paidByMember?.username ?? null)
-      toast.success(`Expense added — passing the plate to ${paidByDisplay}`, {
+      toast.success(`Passing the plate to ${paidByDisplay}`, {
         description: `${description}: ${amount} INIT`,
       })
 
@@ -84,108 +87,211 @@ export function AddExpenseModal({ poolId, members, denom, onSuccess }: AddExpens
     }
   }
 
+  const perSplit = amount && splitBetween.length > 0
+    ? fromMicro((toMicro(amount) / BigInt(splitBetween.length)).toString())
+    : null
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button size="sm">
-          <UtensilsCrossed className="h-4 w-4" />
-          Add to the spread
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle>Add to the spread</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <div>
-            <Label htmlFor="exp-description">What was it for?</Label>
-            <Input
-              id="exp-description"
-              placeholder="Dinner, Airbnb, Groceries…"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="mt-1.5"
-            />
-          </div>
+    <>
+      <div onClick={() => setOpen(true)} style={{ display: "contents" }}>
+        {trigger}
+      </div>
 
-          <div>
-            <Label htmlFor="exp-amount">Amount (INIT)</Label>
-            <Input
-              id="exp-amount"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="mt-1.5 font-mono"
-            />
-          </div>
+      {open && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(28,25,23,0.4)",
+            zIndex: 50,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setOpen(false) }}
+        >
+          <div
+            style={{
+              backgroundColor: "#FFFFFF",
+              border: "1px solid #E2D9CE",
+              borderRadius: 12,
+              width: "100%",
+              maxWidth: 440,
+              maxHeight: "90vh",
+              overflowY: "auto",
+              padding: "24px",
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <div style={{ fontSize: 16, fontWeight: 580, color: "#1C1917", letterSpacing: "-0.01em" }}>
+                Add to the spread
+              </div>
+              <button
+                onClick={() => setOpen(false)}
+                style={{
+                  background: "none",
+                  border: "none",
+                  cursor: "pointer",
+                  color: "#C4BAB0",
+                  padding: 4,
+                  display: "flex",
+                  alignItems: "center",
+                  fontFamily: "inherit",
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "#78716C")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "#C4BAB0")}
+                aria-label="Close"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </button>
+            </div>
 
-          <div>
-            <Label>Who paid?</Label>
-            <div className="mt-1.5 space-y-2">
-              {members.map((m) => (
-                <label key={m.address} className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
-                  paidByAddress === m.address ? "border-emerald-500 bg-emerald-50" : "border-zinc-200 hover:bg-zinc-50"
-                }`}>
-                  <input
-                    type="radio"
-                    name="paidBy"
-                    value={m.address}
-                    checked={paidByAddress === m.address}
-                    onChange={() => setPaidByAddress(m.address)}
-                    className="accent-emerald-600"
-                  />
-                  <UsernameBadge address={m.address} username={m.username} size="sm" />
-                  {m.address === address && <span className="ml-auto text-xs text-zinc-400">you</span>}
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              {/* Description */}
+              <div>
+                <label style={{ fontSize: 11.5, color: "#A8A29E", display: "block", marginBottom: 6 }}>
+                  What was it for?
                 </label>
-              ))}
+                <input
+                  type="text"
+                  placeholder="Dinner, Airbnb, Groceries…"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  className="field-input"
+                  style={{ width: "100%", padding: "10px 12px", fontSize: 14, borderRadius: 6, border: "1px solid #DDD6CE", color: "#1C1917", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = HEARTH; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(192,122,56,0.12)" }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "#DDD6CE"; e.currentTarget.style.boxShadow = "none" }}
+                />
+              </div>
+
+              {/* Amount */}
+              <div>
+                <label style={{ fontSize: 11.5, color: "#A8A29E", display: "block", marginBottom: 6 }}>
+                  Amount (INIT)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="tabular field-input"
+                  style={{ width: "100%", padding: "10px 12px", fontSize: 15, fontWeight: 550, borderRadius: 6, border: "1px solid #DDD6CE", color: "#1C1917", fontFamily: "inherit", outline: "none", boxSizing: "border-box" }}
+                  onFocus={(e) => { e.currentTarget.style.borderColor = HEARTH; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(192,122,56,0.12)" }}
+                  onBlur={(e) => { e.currentTarget.style.borderColor = "#DDD6CE"; e.currentTarget.style.boxShadow = "none" }}
+                />
+              </div>
+
+              {/* Who paid */}
+              <div>
+                <label style={{ fontSize: 11.5, color: "#A8A29E", display: "block", marginBottom: 8 }}>
+                  Who paid?
+                </label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {members.map((m) => {
+                    const handle = m.username || m.address.slice(0, 8)
+                    const selected = paidByAddress === m.address
+                    return (
+                      <label
+                        key={m.address}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: "10px 12px",
+                          borderRadius: 7,
+                          border: `1px solid ${selected ? HEARTH : "#E2D9CE"}`,
+                          backgroundColor: selected ? "#FDF3E8" : "#FFFFFF",
+                          cursor: "pointer",
+                          transition: "border-color 0.15s, background-color 0.15s",
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name="paidBy"
+                          value={m.address}
+                          checked={selected}
+                          onChange={() => setPaidByAddress(m.address)}
+                          style={{ accentColor: HEARTH }}
+                        />
+                        <Avatar handle={handle} displayName={m.username || undefined} size={22} />
+                        <span style={{ fontSize: 13, color: "#1C1917", flex: 1 }}>{m.username || handle}</span>
+                        {m.address === address && (
+                          <span style={{ fontSize: 11, color: "#A8A29E" }}>you</span>
+                        )}
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Split between */}
+              <div>
+                <label style={{ fontSize: 11.5, color: "#A8A29E", display: "block", marginBottom: 8 }}>
+                  Split between
+                </label>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  {members.map((m) => {
+                    const handle = m.username || m.address.slice(0, 8)
+                    const checked = splitBetween.includes(m.address)
+                    return (
+                      <label
+                        key={m.address}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 10,
+                          padding: "10px 12px",
+                          borderRadius: 7,
+                          border: `1px solid ${checked ? HEARTH : "#E2D9CE"}`,
+                          backgroundColor: checked ? "#FDF3E8" : "#FFFFFF",
+                          cursor: "pointer",
+                          transition: "border-color 0.15s, background-color 0.15s",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleSplit(m.address)}
+                          style={{ accentColor: HEARTH }}
+                        />
+                        <Avatar handle={handle} displayName={m.username || undefined} size={22} />
+                        <span style={{ fontSize: 13, color: "#1C1917", flex: 1 }}>{m.username || handle}</span>
+                        {checked && perSplit && (
+                          <span className="tabular" style={{ fontSize: 12, color: "#A8A29E" }}>
+                            {perSplit} INIT
+                          </span>
+                        )}
+                      </label>
+                    )
+                  })}
+                </div>
+                <p style={{ fontSize: 12, color: "#C4BAB0", marginTop: 6 }}>Split equally among selected</p>
+              </div>
+
+              {/* Info note */}
+              <div style={{ backgroundColor: "#FDF3E8", border: "1px solid #F0E0C8", borderRadius: 7, padding: "10px 12px" }}>
+                <p style={{ fontSize: 12, color: "#78716C", margin: 0, lineHeight: 1.5 }}>
+                  The treasury will send {amount || "0"} INIT to{" "}
+                  <strong style={{ color: "#4A3D35" }}>
+                    {formatIdentity(paidByAddress, members.find(m => m.address === paidByAddress)?.username ?? null)}
+                  </strong>{" "}
+                  automatically.
+                </p>
+              </div>
+
+              <CTABtn full onClick={handleSubmit} disabled={loading}>
+                {loading ? "Adding…" : "Add to the spread"}
+              </CTABtn>
             </div>
           </div>
-
-          <div>
-            <Label>Split between</Label>
-            <div className="mt-1.5 space-y-2">
-              {members.map((m) => (
-                <label key={m.address} className={`flex items-center gap-2 p-2.5 rounded-lg border cursor-pointer transition-colors ${
-                  splitBetween.includes(m.address) ? "border-emerald-500 bg-emerald-50" : "border-zinc-200 hover:bg-zinc-50"
-                }`}>
-                  <input
-                    type="checkbox"
-                    checked={splitBetween.includes(m.address)}
-                    onChange={() => toggleSplit(m.address)}
-                    className="accent-emerald-600"
-                  />
-                  <UsernameBadge address={m.address} username={m.username} size="sm" />
-                  {splitBetween.includes(m.address) && amount && splitBetween.length > 0 && (
-                    <span className="ml-auto text-xs text-zinc-400 font-mono">
-                      {fromMicro((toMicro(amount) / BigInt(splitBetween.length)).toString())} INIT
-                    </span>
-                  )}
-                </label>
-              ))}
-            </div>
-            <p className="text-xs text-zinc-400 mt-1">Split equally among selected guests</p>
-          </div>
-
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
-            <strong>Passing the plate:</strong> The treasury will send {amount || "0"} INIT to{" "}
-            {members.find((m) => m.address === paidByAddress)
-              ? formatIdentity(paidByAddress, members.find((m) => m.address === paidByAddress)?.username ?? null)
-              : "the payer"}{" "}
-            automatically.
-          </div>
-
-          <Button className="w-full" onClick={handleSubmit} disabled={loading}>
-            {loading ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Passing the plate…</>
-            ) : (
-              "Add to the spread"
-            )}
-          </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      )}
+    </>
   )
 }

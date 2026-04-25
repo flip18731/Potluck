@@ -2,8 +2,7 @@
 
 import { useInterwovenKit } from "@initia/interwovenkit-react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { ChefHat, Users, Zap, Globe, Shield, ArrowRight, CheckCircle, X } from "lucide-react"
+import { CTABtn } from "@/components/ui/CTABtn"
 
 export function LandingPage() {
   const { address, openConnect } = useInterwovenKit()
@@ -18,279 +17,313 @@ export function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div style={{ minHeight: "100vh", backgroundColor: "#F8F5F0", fontFamily: "inherit" }}>
+
       {/* Nav */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/80 backdrop-blur-md border-b border-zinc-100">
-        <div className="flex items-center justify-between px-6 py-3.5 max-w-6xl mx-auto">
-          <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-lg bg-emerald-600 flex items-center justify-center shadow-sm">
-              <ChefHat className="h-4.5 w-4.5 text-white" style={{ width: 18, height: 18 }} />
-            </div>
-            <span className="font-bold text-xl text-zinc-900 tracking-tight">Potluck</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <a
-              href="https://faucet.testnet.initia.xyz"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="hidden sm:inline-flex text-sm text-zinc-500 hover:text-zinc-700 px-3 py-1.5 rounded-lg hover:bg-zinc-50 transition-colors"
-            >
-              Get test tokens
-            </a>
-            {address ? (
-              <Button onClick={() => router.push("/dashboard")} size="sm">
-                Open dashboard →
-              </Button>
-            ) : (
-              <Button onClick={openConnect} size="sm">
-                Get started free
-              </Button>
-            )}
-          </div>
+      <nav
+        style={{
+          position: "sticky",
+          top: 0,
+          zIndex: 50,
+          backgroundColor: "#F8F5F0",
+          borderBottom: "1px solid #EDE8E1",
+          height: 56,
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 1080,
+            margin: "0 auto",
+            padding: "0 48px",
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <span
+            style={{
+              fontSize: 17,
+              fontWeight: 640,
+              color: "#1C1917",
+              letterSpacing: "-0.025em",
+            }}
+          >
+            Potluck
+          </span>
+          <CTABtn size="sm" onClick={handleCTA}>
+            Start a potluck →
+          </CTABtn>
         </div>
       </nav>
 
       {/* Hero */}
-      <section className="pt-32 pb-20 px-6 max-w-5xl mx-auto text-center">
-        <div className="inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-8 border border-emerald-200/60">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          Live on Initia Testnet · Real on-chain settlement
-        </div>
-
-        <h1 className="text-5xl sm:text-6xl md:text-7xl font-bold text-zinc-900 leading-[1.05] tracking-tight mb-6">
-          Group money,{" "}
-          <span className="relative">
-            <span className="text-emerald-600">finally settled.</span>
-            <span className="absolute -bottom-1 left-0 right-0 h-0.5 bg-emerald-200 rounded-full" />
-          </span>
-        </h1>
-
-        <p className="text-xl sm:text-2xl text-zinc-500 max-w-2xl mx-auto mb-4 leading-relaxed font-light">
-          Everyone brings something to the table. At the end,{" "}
-          <strong className="text-zinc-700 font-medium">everyone takes home what&apos;s theirs.</strong>
-        </p>
-        <p className="text-base text-zinc-400 max-w-xl mx-auto mb-10">
-          No Venmo. No IBANs. No "hey you still owe me €12" texts.
-          Real on-chain settlement on Initia — every transfer verifiable on InitiaScan.
-        </p>
-
-        <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
-          <Button size="lg" onClick={handleCTA} className="text-base px-8 h-12 shadow-sm">
-            Set the table
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-          <a
-            href="https://scan.testnet.initia.xyz"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-sm text-zinc-500 hover:text-zinc-700 flex items-center gap-1.5"
+      <section style={{ padding: "88px 48px 100px", maxWidth: 1080, margin: "0 auto" }}>
+        <div style={{ maxWidth: 660 }}>
+          <h1
+            style={{
+              fontSize: 56,
+              fontWeight: 640,
+              letterSpacing: "-0.035em",
+              color: "#1C1917",
+              lineHeight: 1.06,
+              margin: "0 0 24px",
+              whiteSpace: "pre-line",
+            }}
           >
-            Verify on InitiaScan →
-          </a>
-        </div>
-
-        {/* Social proof chips */}
-        <div className="flex flex-wrap justify-center gap-2 mt-10">
-          {["Ski trips", "Roommates", "Dinner clubs", "Travel groups", "Wedding parties"].map((use) => (
-            <span key={use} className="text-xs text-zinc-400 bg-zinc-50 border border-zinc-100 px-3 py-1.5 rounded-full">
-              {use}
-            </span>
-          ))}
-        </div>
-      </section>
-
-      {/* Split comparison */}
-      <section className="py-20 px-6 bg-zinc-50">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-center text-xs text-zinc-400 uppercase tracking-widest font-semibold mb-10">
-            The broken workflow, fixed
+            {"Everyone brings\nsomething. Nobody\nhas to ask."}
+          </h1>
+          <p
+            style={{
+              fontSize: 18,
+              color: "#78716C",
+              lineHeight: 1.68,
+              margin: "0 0 36px",
+              maxWidth: 510,
+            }}
+          >
+            Potluck is a shared pot for group expenses. Everyone chips in upfront, costs come out as
+            the trip happens, and at the end whatever&apos;s left goes back to everyone — automatically.
           </p>
-          <div className="grid md:grid-cols-2 gap-4">
-            {/* Before */}
-            <div className="bg-white rounded-2xl p-6 border border-zinc-200">
-              <div className="flex items-center gap-2 mb-5">
-                <div className="h-7 w-7 rounded-full bg-red-100 flex items-center justify-center">
-                  <X className="h-3.5 w-3.5 text-red-500" />
-                </div>
-                <p className="font-semibold text-zinc-500">Without Potluck</p>
-              </div>
-              <ol className="space-y-3">
-                {[
-                  "Log in to Splitwise, create a group",
-                  "Add expenses one by one",
-                  "Figure out who owes who",
-                  "Chase everyone on Venmo / PayPal",
-                  "Wait days for bank transfers to clear",
-                  "\"Hey, did you get my request?\"",
-                  "Still unresolved 3 weeks later 😬",
-                ].map((step, i) => (
-                  <li key={i} className="flex items-start gap-2.5 text-sm text-zinc-500">
-                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-zinc-100 text-zinc-400 text-xs flex items-center justify-center font-medium mt-0.5">
-                      {i + 1}
-                    </span>
-                    {step}
-                  </li>
-                ))}
-              </ol>
-            </div>
-
-            {/* After */}
-            <div className="bg-emerald-600 rounded-2xl p-6 text-white">
-              <div className="flex items-center gap-2 mb-5">
-                <div className="h-7 w-7 rounded-full bg-white/20 flex items-center justify-center">
-                  <CheckCircle className="h-3.5 w-3.5 text-white" />
-                </div>
-                <p className="font-semibold text-white/90">With Potluck</p>
-              </div>
-              <ol className="space-y-3">
-                {[
-                  "Set the table — one potluck, all members",
-                  "Everyone brings their share on-chain",
-                  "Add expenses as they happen",
-                  "Plate passes automatically — payer reimbursed instantly",
-                  "Real-time balance board for everyone",
-                  "Clear the table — settled in seconds",
-                  "Take leftovers home to any Initia chain 🎉",
-                ].map((step, i) => (
-                  <li key={i} className="flex items-start gap-2.5 text-sm text-white/90">
-                    <CheckCircle className="flex-shrink-0 h-4 w-4 text-emerald-200 mt-0.5" />
-                    {step}
-                  </li>
-                ))}
-              </ol>
-            </div>
+          <div style={{ display: "flex", flexDirection: "row", gap: 20, alignItems: "center" }}>
+            <CTABtn size="lg" onClick={handleCTA}>
+              Start a potluck →
+            </CTABtn>
+            <span style={{ fontSize: 13, color: "#A8A29E" }}>Sign in with Google. Free for groups.</span>
           </div>
         </div>
       </section>
 
-      {/* Features grid */}
-      <section className="py-20 px-6 max-w-6xl mx-auto">
-        <p className="text-center text-xs text-zinc-400 uppercase tracking-widest font-semibold mb-12">
-          Built different
-        </p>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {[
-            {
-              icon: Shield,
-              color: "bg-blue-50 text-blue-600",
-              title: "Trustless escrow",
-              desc: "Funds live on-chain. Nobody holds the bag — not even the creator. The rules are in code, not promises.",
-            },
-            {
-              icon: Zap,
-              color: "bg-amber-50 text-amber-600",
-              title: "Instant settlement",
-              desc: "When the table is cleared, everyone's share lands in their wallet in seconds. Not days, not after a PayPal review.",
-            },
-            {
-              icon: Globe,
-              color: "bg-purple-50 text-purple-600",
-              title: "Works across borders",
-              desc: "Your Brazilian friend takes their leftovers home to their chain. No IBAN, no SWIFT, no FX fees.",
-            },
-            {
-              icon: Users,
-              color: "bg-emerald-50 text-emerald-600",
-              title: "Identity-first",
-              desc: "Add members by @username.init. No address pasting, no QR scanning — just names your friends already have.",
-            },
-            {
-              icon: ChefHat,
-              color: "bg-rose-50 text-rose-600",
-              title: "One-tap approval",
-              desc: "Enable auto-sign once per potluck. Contribute and approve expenses without a signature popup every time.",
-            },
-            {
-              icon: ArrowRight,
-              color: "bg-zinc-100 text-zinc-600",
-              title: "Fully verifiable",
-              desc: "Every contribution, reimbursement, and settlement is a real on-chain tx with a link to InitiaScan.",
-            },
-          ].map(({ icon: Icon, color, title, desc }) => (
-            <div key={title} className="group bg-white rounded-xl p-5 border border-zinc-200 hover:border-zinc-300 hover:shadow-md transition-all">
-              <div className={`h-10 w-10 rounded-xl ${color} flex items-center justify-center mb-4`}>
-                <Icon className="h-5 w-5" />
-              </div>
-              <h3 className="font-semibold text-zinc-900 mb-1.5">{title}</h3>
-              <p className="text-sm text-zinc-500 leading-relaxed">{desc}</p>
-            </div>
-          ))}
+      {/* Problem section */}
+      <section style={{ backgroundColor: "#FFFFFF", padding: "68px 48px" }}>
+        <div style={{ maxWidth: 680, margin: "0 auto" }}>
+          <p
+            style={{
+              fontSize: 20,
+              color: "#4A3D35",
+              lineHeight: 1.65,
+              fontWeight: 400,
+              margin: 0,
+            }}
+          >
+            One person booked the Airbnb. Someone else got groceries. A third handled lift tickets
+            across the week. By Sunday night, nobody knows who owes whom how much. Two months later,
+            three people still haven&apos;t been paid back.
+          </p>
+          <p
+            style={{
+              fontSize: 16,
+              color: "#78716C",
+              lineHeight: 1.68,
+              marginTop: 22,
+              marginBottom: 0,
+            }}
+          >
+            This is the pattern Potluck is designed to end — not by tracking who owes what, but by
+            settling it automatically when the trip closes.
+          </p>
         </div>
       </section>
 
-      {/* How it works — 3 steps */}
-      <section className="py-20 px-6 bg-zinc-50">
-        <div className="max-w-3xl mx-auto text-center">
-          <p className="text-xs text-zinc-400 uppercase tracking-widest font-semibold mb-12">
-            Three steps
+      {/* How it works */}
+      <section style={{ backgroundColor: "#F8F5F0", padding: "72px 48px 80px" }}>
+        <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+          <p
+            style={{
+              fontSize: 11.5,
+              color: "#A8A29E",
+              fontWeight: 550,
+              letterSpacing: "0.09em",
+              textTransform: "uppercase",
+              marginBottom: 52,
+              marginTop: 0,
+            }}
+          >
+            How it works
           </p>
-          <div className="grid sm:grid-cols-3 gap-8">
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(3, 1fr)",
+              gap: 52,
+            }}
+          >
             {[
-              { step: "1", title: "Set the table", desc: "Create a potluck, invite friends by their .init username. They're ready the moment you share the link." },
-              { step: "2", title: "Everyone brings a share", desc: "Members contribute funds on-chain. As expenses happen, the plate is passed automatically to whoever paid." },
-              { step: "3", title: "Clear the table", desc: "One click settles everything. Remaining balance goes straight to each member's wallet. No chasing, no awkward texts." },
-            ].map(({ step, title, desc }) => (
-              <div key={step} className="text-center">
-                <div className="h-12 w-12 rounded-2xl bg-emerald-600 text-white text-xl font-bold flex items-center justify-center mx-auto mb-4 shadow-sm">
-                  {step}
+              {
+                num: "01",
+                title: "Set the table",
+                body: "Create a potluck, name it, invite your group. Everyone puts their expected share into the shared pot. The money belongs to the group — no single person holds it.",
+              },
+              {
+                num: "02",
+                title: "Add to the spread",
+                body: "As expenses happen, log them. The pot pays out automatically, or reimburses whoever fronted the cash. Balances update in real time for everyone in the group.",
+              },
+              {
+                num: "03",
+                title: "Clear the table",
+                body: "When the trip's over, one action distributes what's left back to everyone. No invoices, no follow-up texts, no spreadsheet. Cleared.",
+              },
+            ].map(({ num, title, body }) => (
+              <div key={num}>
+                <div
+                  style={{
+                    fontSize: 38,
+                    fontWeight: 300,
+                    color: "#DDD6CE",
+                    fontVariantNumeric: "tabular-nums",
+                    marginBottom: 18,
+                  }}
+                >
+                  {num}
                 </div>
-                <h3 className="font-semibold text-zinc-900 mb-2">{title}</h3>
-                <p className="text-sm text-zinc-500 leading-relaxed">{desc}</p>
+                <div
+                  style={{
+                    fontSize: 15.5,
+                    fontWeight: 580,
+                    color: "#1C1917",
+                    marginBottom: 10,
+                  }}
+                >
+                  {title}
+                </div>
+                <p
+                  style={{
+                    fontSize: 14,
+                    color: "#78716C",
+                    lineHeight: 1.65,
+                    margin: 0,
+                  }}
+                >
+                  {body}
+                </p>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Final CTA */}
-      <section className="py-20 px-6">
-        <div className="max-w-lg mx-auto text-center">
-          <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-10 text-white shadow-xl">
-            <ChefHat className="h-10 w-10 mx-auto mb-4 opacity-80" />
-            <h2 className="text-3xl font-bold mb-3">Ready to set the table?</h2>
-            <p className="text-emerald-100 mb-8 text-base leading-relaxed">
-              Sign in with Google. No seed phrases. Your embedded Initia wallet is created in seconds.
-            </p>
-            <Button
-              size="lg"
-              onClick={handleCTA}
-              className="bg-white text-emerald-700 hover:bg-emerald-50 text-base px-8 h-12 w-full font-semibold shadow-sm"
+      {/* Trust strip */}
+      <section style={{ backgroundColor: "#FFFFFF", padding: "36px 48px" }}>
+        <div
+          style={{
+            maxWidth: 1080,
+            margin: "0 auto",
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "stretch",
+          }}
+        >
+          {[
+            "Real money, settled instantly.",
+            "Every balance visible to all members.",
+            "No single person holds the group's pot.",
+          ].map((text, i) => (
+            <div
+              key={i}
+              style={{
+                flex: 1,
+                borderLeft: i > 0 ? "1px solid #EDE8E1" : undefined,
+                paddingLeft: i > 0 ? 32 : 0,
+                paddingRight: i < 2 ? 32 : 0,
+                fontSize: 13.5,
+                color: "#78716C",
+                lineHeight: 1.5,
+              }}
             >
-              {address ? "Go to your potlucks →" : "Get started — it's free"}
-            </Button>
-            <p className="text-xs text-emerald-200/80 mt-4">
-              Test tokens:{" "}
-              <a href="https://faucet.testnet.initia.xyz" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
-                faucet.testnet.initia.xyz
-              </a>
-            </p>
-          </div>
+              {text}
+            </div>
+          ))}
         </div>
       </section>
 
+      {/* Second CTA */}
+      <section style={{ backgroundColor: "#FDF3E8", padding: "80px 48px", textAlign: "center" }}>
+        <h2
+          style={{
+            fontSize: 34,
+            fontWeight: 640,
+            letterSpacing: "-0.025em",
+            color: "#1C1917",
+            margin: "0 0 14px",
+          }}
+        >
+          Your next trip deserves this.
+        </h2>
+        <p style={{ fontSize: 16, color: "#78716C", margin: "0 0 34px" }}>
+          Set up a potluck in about thirty seconds.
+        </p>
+        <CTABtn size="lg" onClick={handleCTA}>
+          Start a potluck →
+        </CTABtn>
+      </section>
+
       {/* Footer */}
-      <footer className="border-t border-zinc-100 py-8 px-6">
-        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-sm text-zinc-400">
-          <div className="flex items-center gap-2">
-            <div className="h-6 w-6 rounded-md bg-emerald-600 flex items-center justify-center">
-              <ChefHat className="h-3.5 w-3.5 text-white" />
+      <footer style={{ backgroundColor: "#1C1917", padding: "44px 48px 36px" }}>
+        <div style={{ maxWidth: 1080, margin: "0 auto" }}>
+          {/* Top row */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "flex-start",
+              marginBottom: 20,
+            }}
+          >
+            <div>
+              <div
+                style={{
+                  fontSize: 16,
+                  fontWeight: 640,
+                  color: "#F8F5F0",
+                  letterSpacing: "-0.02em",
+                  marginBottom: 6,
+                }}
+              >
+                Potluck
+              </div>
+              <p style={{ fontSize: 13, color: "#4A4440", margin: 0 }}>
+                The shared pot for group expenses.
+              </p>
             </div>
-            <span className="font-semibold text-zinc-600">Potluck</span>
-            <span>— Built on Initia testnet</span>
+            <div style={{ display: "flex", gap: 28 }}>
+              {["Terms", "Privacy", "Contact"].map((link) => (
+                <FooterLink key={link}>{link}</FooterLink>
+              ))}
+            </div>
           </div>
-          <div className="flex items-center gap-4">
-            <a href="https://scan.testnet.initia.xyz" target="_blank" rel="noopener noreferrer" className="hover:text-zinc-600 transition-colors">
-              InitiaScan
-            </a>
-            <a href="https://faucet.testnet.initia.xyz" target="_blank" rel="noopener noreferrer" className="hover:text-zinc-600 transition-colors">
-              Faucet
-            </a>
-            <a href="https://docs.initia.xyz" target="_blank" rel="noopener noreferrer" className="hover:text-zinc-600 transition-colors">
-              Docs
-            </a>
+
+          {/* Bottom row */}
+          <div
+            style={{
+              borderTop: "1px solid rgba(255,255,255,0.06)",
+              paddingTop: 20,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
+            <span style={{ fontSize: 12, color: "#3A3030" }}>© 2026 Potluck</span>
+            <span style={{ fontSize: 12, color: "#3A3030" }}>Built on Initia</span>
           </div>
         </div>
       </footer>
     </div>
+  )
+}
+
+function FooterLink({ children }: { children: string }) {
+  return (
+    <a
+      href="#"
+      style={{ fontSize: 13, color: "#5A5050", textDecoration: "none", transition: "color 0.15s" }}
+      onMouseEnter={(e) => (e.currentTarget.style.color = "#A8A29E")}
+      onMouseLeave={(e) => (e.currentTarget.style.color = "#5A5050")}
+    >
+      {children}
+    </a>
   )
 }

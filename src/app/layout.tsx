@@ -1,25 +1,22 @@
 import type { Metadata } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
 import { Providers } from "./providers"
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] })
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] })
-
 export const metadata: Metadata = {
-  title: "Potluck — Trustless Expense Splitting on Initia",
-  description: "Share trips. Split fairly. Settle instantly. Group expense splitting that actually settles on Initia blockchain.",
+  title: "Potluck — Shared expenses, automatically settled",
+  description:
+    "Everyone brings something. Nobody has to ask. Group expense splitting that actually settles — on Initia.",
   openGraph: {
     title: "Potluck",
-    description: "Share trips. Split fairly. Settle instantly.",
+    description: "Everyone brings something. Nobody has to ask.",
     type: "website",
   },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
-      <body className="min-h-full">
+    <html lang="en" style={{ height: "100%" }}>
+      <body style={{ minHeight: "100%", margin: 0 }}>
         <Providers>{children}</Providers>
       </body>
     </html>
