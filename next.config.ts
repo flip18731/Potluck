@@ -2,6 +2,7 @@ import type { NextConfig } from "next"
 import path from "node:path"
 
 const nextConfig: NextConfig = {
+  transpilePackages: ["@initia/interwovenkit-react"],
   turbopack: {
     root: path.resolve(process.cwd()),
   },

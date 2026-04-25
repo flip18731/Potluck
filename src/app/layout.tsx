@@ -15,8 +15,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" style={{ height: "100%" }}>
-      <body style={{ minHeight: "100%", margin: 0 }}>
+    <html lang="en" suppressHydrationWarning style={{ height: "100%" }}>
+      <body suppressHydrationWarning style={{ minHeight: "100%", margin: 0 }}>
         <Providers>{children}</Providers>
       </body>
     </html>
