@@ -1,14 +1,17 @@
 "use client"
 
 import { use, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 import { useInterwovenKit } from "@initia/interwovenkit-react"
+import type { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx"
 import { AppNav } from "@/components/chrome/AppNav"
 import { Avatar } from "@/components/ui/Avatar"
 import { fromMicro, INITIA_TESTNET } from "@/lib/initia/chain"
+import { atInitHandle } from "@/lib/initia/display"
 import { toast } from "sonner"
 import { HEARTH } from "@/lib/design/tokens"
+import { humanizeTxError } from "@/lib/initia/tx-errors"
 
 interface Balance {
   address: string
@@ -41,27 +44,53 @@ const Dots = () => (
   </span>
 )
 
+/** Interwoven Bridge routing chip — matches Clear_the_Table.html (last non-me recipient → Osmosis, you → Mantle). */
+function settlementBridgeChip(
+  balance: Balance,
+  allBalances: Balance[],
+  currentUserAddress: string | undefined
+): { label: string | null; showChange: boolean } {
+  const net = BigInt(balance.netBalance)
+  if (net <= 0n) return { label: null, showChange: false }
+  const isMe = balance.address === currentUserAddress
+  if (isMe) return { label: "Mantle", showChange: true }
+
+  let lastNonMePositiveAddr: string | null = null
+  for (const b of allBalances) {
+    if (BigInt(b.netBalance) <= 0n) continue
+    if (b.address === currentUserAddress) continue
+    lastNonMePositiveAddr = b.address
+  }
+  if (lastNonMePositiveAddr && balance.address === lastNonMePositiveAddr) {
+    return { label: "Osmosis", showChange: false }
+  }
+  return { label: null, showChange: false }
+}
+
 function DistRow({
   balance,
   rowIdx,
   phase,
   currentUserAddress,
+  viewerUsername,
+  allBalances,
 }: {
   balance: Balance
   rowIdx: number
   phase: Phase
   currentUserAddress?: string
+  viewerUsername?: string | null
+  allBalances: Balance[]
 }) {
   const net = BigInt(balance.netBalance)
   const amount = net > 0n ? net : 0n
   const isZero = amount === 0n
   const isMe = balance.address === currentUserAddress
   const handle = balance.username || balance.address.slice(0, 8)
-  const displayName = balance.username || undefined
+  const displayName = isMe && viewerUsername ? viewerUsername : balance.username || undefined
   const settling = phase === "settling"
-  const routingLabel = amount > 0n
-    ? (isMe ? "Mantle" : rowIdx === 0 ? "Osmosis" : null)
-    : null
+  const subtitle = balance.username ? atInitHandle(balance.username) : `${balance.address.slice(0, 10)}…`
+  const { label: routingLabel, showChange } = settlementBridgeChip(balance, allBalances, currentUserAddress)
 
   return (
     <div
@@ -83,7 +112,7 @@ function DistRow({
           {isMe && <span style={{ fontSize: 11, color: "#A8A29E" }}>you</span>}
         </div>
         <div className="tabular" style={{ fontSize: 11.5, color: "#A8A29E", marginTop: 1 }}>
-          @{handle}
+          {subtitle}
         </div>
       </div>
 
@@ -100,8 +129,7 @@ function DistRow({
         >
           {isZero ? "—" : `+${fromMicro(amount)} INIT`}
         </div>
-
-        {routingLabel && (
+        {routingLabel && !isZero && (
           <div
             style={{
               marginTop: 3,
@@ -111,9 +139,10 @@ function DistRow({
               gap: 5,
             }}
           >
-            <span style={{ fontSize: 11, color: "#B8B0A8" }}>→ {routingLabel}</span>
-            {isMe && phase === "pre" && (
+            <span className="tabular" style={{ fontSize: 11, fontWeight: 550, color: HEARTH }}>→ {routingLabel}</span>
+            {showChange && phase === "pre" && (
               <button
+                type="button"
                 style={{
                   fontSize: 11,
                   color: "#C9C1B8",
@@ -138,7 +167,8 @@ function DistRow({
 
 export default function SettlePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const { address } = useInterwovenKit()
+  const queryClient = useQueryClient()
+  const { address, username, requestTxBlock } = useInterwovenKit()
   const router = useRouter()
 
   const [phase, setPhase] = useState<Phase>("pre")
@@ -152,6 +182,7 @@ export default function SettlePage({ params }: { params: Promise<{ id: string }>
       if (!res.ok) throw new Error("Pool not found")
       return res.json()
     },
+    refetchInterval: 2000,
   })
 
   const pool = data?.pool
@@ -164,6 +195,24 @@ export default function SettlePage({ params }: { params: Promise<{ id: string }>
 
     setPhase("settling")
     try {
+      const poolContractAddress = process.env.NEXT_PUBLIC_POOL_CONTRACT_ADDRESS?.trim()
+      if (poolContractAddress) {
+        const exec: MsgExecuteContract = {
+          sender: address,
+          contract: poolContractAddress,
+          msg: new TextEncoder().encode(JSON.stringify({ close_pool: { pool_id: id } })),
+          funds: [],
+        }
+        await requestTxBlock({
+          messages: [
+            {
+              typeUrl: "/cosmwasm.wasm.v1.MsgExecuteContract",
+              value: exec,
+            },
+          ],
+        })
+      }
+
       const res = await fetch(`/api/pools/${id}/close`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -174,8 +223,10 @@ export default function SettlePage({ params }: { params: Promise<{ id: string }>
 
       setSettleTxHash(result.txHash || null)
       setPhase("done")
+      await queryClient.invalidateQueries({ queryKey: ["pool", id] })
+      await queryClient.invalidateQueries({ queryKey: ["onchain-uinit-balance"] })
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Settlement failed")
+      toast.error(humanizeTxError(e))
       setPhase("pre")
       setConfirmStep(false)
     }
@@ -196,7 +247,7 @@ export default function SettlePage({ params }: { params: Promise<{ id: string }>
     <div style={{ minHeight: "100vh", backgroundColor: "#F8F5F0", paddingBottom: 72 }}>
       <AppNav backLabel={backLabel} backHref={backHref} />
 
-      <main style={{ maxWidth: 520, margin: "0 auto", padding: "48px 32px 32px" }}>
+      <main className="settle-main" style={{ maxWidth: 520, margin: "0 auto", padding: "48px 32px 32px" }}>
 
         {/* ── Pre-commit ── */}
         {phase === "pre" && (
@@ -219,7 +270,7 @@ export default function SettlePage({ params }: { params: Promise<{ id: string }>
                 Clear the table
               </h1>
               <p style={{ fontSize: 14, color: "#A8A29E" }}>
-                Everyone's covered. Review the distribution below.
+                Everyone{"\u2019"}s covered. Review the distribution below.
               </p>
             </div>
 
@@ -241,7 +292,15 @@ export default function SettlePage({ params }: { params: Promise<{ id: string }>
 
             {/* Distribution rows */}
             {balances.map((b, i) => (
-              <DistRow key={b.address} balance={b} rowIdx={i} phase="pre" currentUserAddress={address} />
+              <DistRow
+                key={b.address}
+                balance={b}
+                rowIdx={i}
+                phase="pre"
+                currentUserAddress={address}
+                viewerUsername={username}
+                allBalances={balances}
+              />
             ))}
 
             {/* Footer summary */}
@@ -294,7 +353,7 @@ export default function SettlePage({ params }: { params: Promise<{ id: string }>
 
             <p style={{ textAlign: "center", fontSize: 12, color: "#C4BAB0", marginTop: 10 }}>
               {confirmStep
-                ? "All transfers fire at once. This can't be undone."
+                ? "Everyone is paid out together. This can't be undone."
                 : "This action archives the potluck and can't be undone."}
             </p>
           </div>
@@ -340,7 +399,15 @@ export default function SettlePage({ params }: { params: Promise<{ id: string }>
             </div>
 
             {balances.map((b, i) => (
-              <DistRow key={b.address} balance={b} rowIdx={i} phase="settling" currentUserAddress={address} />
+              <DistRow
+                key={b.address}
+                balance={b}
+                rowIdx={i}
+                phase="settling"
+                currentUserAddress={address}
+                viewerUsername={username}
+                allBalances={balances}
+              />
             ))}
 
             <div style={{ padding: "18px 0 0", marginBottom: 36 }}>
@@ -429,7 +496,15 @@ export default function SettlePage({ params }: { params: Promise<{ id: string }>
             {/* Distribution confirmed */}
             <div style={{ borderBottom: "1px solid #EDE8E1" }}>
               {balances.map((b, i) => (
-                <DistRow key={b.address} balance={b} rowIdx={i} phase="done" currentUserAddress={address} />
+                <DistRow
+                  key={b.address}
+                  balance={b}
+                  rowIdx={i}
+                  phase="done"
+                  currentUserAddress={address}
+                  viewerUsername={username}
+                  allBalances={balances}
+                />
               ))}
             </div>
 
@@ -509,6 +584,11 @@ export default function SettlePage({ params }: { params: Promise<{ id: string }>
           </div>
         )}
       </main>
+      <style>{`
+        @media (max-width: 768px) {
+          .settle-main { padding: 32px 20px 24px !important; }
+        }
+      `}</style>
     </div>
   )
 }

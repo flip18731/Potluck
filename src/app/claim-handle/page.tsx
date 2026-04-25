@@ -17,6 +17,7 @@ export default function ClaimHandlePage() {
   const [claiming, setClaiming] = useState(false)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  /* eslint-disable react-hooks/set-state-in-effect -- debounced resolver resets status when input clears */
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
 
@@ -47,6 +48,7 @@ export default function ClaimHandlePage() {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
   }, [handle])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const handleClaim = async () => {
     const registryAddress = process.env.NEXT_PUBLIC_USERNAME_REGISTRY_ADDRESS

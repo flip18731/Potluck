@@ -31,7 +31,7 @@ export const AVATAR_COLORS: Record<string, { bg: string; fg: string }> = {
 
 export function avatarColor(handle: string): { bg: string; fg: string } {
   if (AVATAR_COLORS[handle]) return AVATAR_COLORS[handle]
-  // deterministic fallback based on string hash
+  // deterministic fallback from handle characters
   const h = [...handle].reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 0)
   const palettes = [
     { bg: "#D4C5B0", fg: "#5A4A3A" },

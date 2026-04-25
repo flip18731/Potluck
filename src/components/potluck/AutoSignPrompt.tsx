@@ -2,7 +2,12 @@
 
 import { useState, useEffect } from "react"
 import {
-  enableAutoSign, isAutoSignEnabled, autoSignExpiresIn, revokeAutoSign, formatExpiry,
+  AUTOSIGN_CHANGED_EVENT,
+  enableAutoSign,
+  isAutoSignEnabled,
+  autoSignExpiresIn,
+  revokeAutoSign,
+  formatExpiry,
 } from "@/lib/initia/autosign"
 import { HEARTH } from "@/lib/design/tokens"
 
@@ -11,18 +16,22 @@ interface AutoSignPromptProps {
 }
 
 export function AutoSignPrompt({ poolId }: AutoSignPromptProps) {
-  const [enabled, setEnabled] = useState(false)
-  const [expiresIn, setExpiresIn] = useState(0)
+  const [tick, setTick] = useState(0)
 
   useEffect(() => {
-    setEnabled(isAutoSignEnabled(poolId))
-    setExpiresIn(autoSignExpiresIn(poolId))
-    const interval = setInterval(() => {
-      setEnabled(isAutoSignEnabled(poolId))
-      setExpiresIn(autoSignExpiresIn(poolId))
-    }, 30_000)
+    const interval = setInterval(() => setTick((n) => n + 1), 30_000)
     return () => clearInterval(interval)
-  }, [poolId])
+  }, [])
+
+  useEffect(() => {
+    const onChange = () => setTick((n) => n + 1)
+    window.addEventListener(AUTOSIGN_CHANGED_EVENT, onChange)
+    return () => window.removeEventListener(AUTOSIGN_CHANGED_EVENT, onChange)
+  }, [])
+
+  const enabled = typeof window !== "undefined" && isAutoSignEnabled(poolId)
+  const expiresIn = typeof window !== "undefined" ? autoSignExpiresIn(poolId) : 0
+  void tick
 
   if (enabled) {
     return (
@@ -54,7 +63,8 @@ export function AutoSignPrompt({ poolId }: AutoSignPromptProps) {
           </div>
         </div>
         <button
-          onClick={() => { revokeAutoSign(poolId); setEnabled(false) }}
+          type="button"
+          onClick={() => { revokeAutoSign(poolId) }}
           style={{
             fontSize: 12,
             color: "#A8A29E",
@@ -98,11 +108,12 @@ export function AutoSignPrompt({ poolId }: AutoSignPromptProps) {
       <div style={{ flex: 1 }}>
         <div style={{ fontSize: 13, fontWeight: 500, color: "#78716C" }}>One-tap approval</div>
         <div style={{ fontSize: 12, color: "#A8A29E", marginTop: 1 }}>
-          Skip signature popups for 24h
+          Skip extra confirm steps for 24h
         </div>
       </div>
       <button
-        onClick={() => { enableAutoSign(poolId); setEnabled(true); setExpiresIn(24 * 60 * 60 * 1000) }}
+        type="button"
+        onClick={() => { enableAutoSign(poolId) }}
         style={{
           fontSize: 12,
           fontWeight: 500,

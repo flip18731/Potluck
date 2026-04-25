@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServiceSupabase } from "@/lib/db/supabase"
 import { calcBalances } from "@/lib/potluck/calc"
 import { DbContribution, DbExpense, DbMember } from "@/lib/potluck/types"
-import { fromMicro } from "@/lib/initia/chain"
-
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const db = getServiceSupabase()

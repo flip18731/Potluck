@@ -3,6 +3,7 @@
 import * as React from "react"
 import * as SeparatorPrimitive from "@radix-ui/react-separator"
 import { cn } from "@/lib/utils"
+import { COLORS } from "@/lib/design/tokens"
 
 const Separator = React.forwardRef<
   React.ElementRef<typeof SeparatorPrimitive.Root>,
@@ -13,10 +14,11 @@ const Separator = React.forwardRef<
     decorative={decorative}
     orientation={orientation}
     className={cn(
-      "shrink-0 bg-zinc-200 dark:bg-zinc-700",
+      "shrink-0",
       orientation === "horizontal" ? "h-[1px] w-full" : "h-full w-[1px]",
       className
     )}
+    style={{ backgroundColor: COLORS.divider }}
     {...props}
   />
 ))

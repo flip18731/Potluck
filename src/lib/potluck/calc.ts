@@ -1,7 +1,7 @@
 import { DbContribution, DbExpense, DbMember, PoolMember } from "./types"
 
 /**
- * Pure balance calculation — no blockchain calls, fully unit-testable.
+ * Pure balance calculation — no network calls, fully unit-testable.
  *
  * For each member:
  *   contributed  = sum of their contributions

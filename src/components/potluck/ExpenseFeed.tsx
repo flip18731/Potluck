@@ -1,5 +1,6 @@
 "use client"
 
+import { useInterwovenKit } from "@initia/interwovenkit-react"
 import { Avatar } from "@/components/ui/Avatar"
 import { fromMicro } from "@/lib/initia/chain"
 import { formatDistanceToNow } from "date-fns"
@@ -25,15 +26,9 @@ interface Contribution {
   created_at: string
 }
 
-interface Member {
-  address: string
-  username: string | null
-}
-
 interface ExpenseFeedProps {
   expenses: Expense[]
   contributions: Contribution[]
-  members: Member[]
   currentUserAddress?: string
 }
 
@@ -41,7 +36,9 @@ type FeedItem =
   | { type: "expense"; data: Expense; date: Date }
   | { type: "contribution"; data: Contribution; date: Date }
 
-export function ExpenseFeed({ expenses, contributions, members, currentUserAddress }: ExpenseFeedProps) {
+export function ExpenseFeed({ expenses, contributions, currentUserAddress }: ExpenseFeedProps) {
+  const { address, username, isConnected } = useInterwovenKit()
+
   const feed: FeedItem[] = [
     ...expenses.map((e) => ({ type: "expense" as const, data: e, date: new Date(e.created_at) })),
     ...contributions.map((c) => ({ type: "contribution" as const, data: c, date: new Date(c.created_at) })),
@@ -50,7 +47,7 @@ export function ExpenseFeed({ expenses, contributions, members, currentUserAddre
   if (feed.length === 0) {
     return (
       <div style={{ padding: "24px 0", textAlign: "center", fontSize: 13, color: "#C4BAB0" }}>
-        Nothing on the spread yet
+        Fresh potluck — nothing on the spread yet
       </div>
     )
   }
@@ -58,25 +55,26 @@ export function ExpenseFeed({ expenses, contributions, members, currentUserAddre
   return (
     <div>
       {feed.map((item, i) => {
+        const meAddress = currentUserAddress || (isConnected ? address : undefined)
+        const rowStyle = {
+          display: "flex" as const,
+          alignItems: "flex-start" as const,
+          gap: 12,
+          padding: "11px 0",
+          borderBottom: "1px solid #EDE8E1",
+          animationDelay: `${200 + i * 40}ms`,
+          minWidth: 0,
+          width: "100%" as const,
+        }
+
         if (item.type === "contribution") {
           const c = item.data
           const handle = c.member_username || c.member_address.slice(0, 8)
-          const displayName = c.member_username || undefined
-          const isMe = c.member_address === currentUserAddress
+          const isMe = meAddress ? c.member_address === meAddress : false
+          const displayName = isMe && username ? username : c.member_username || undefined
 
           return (
-            <div
-              key={`c-${c.id}`}
-              className="fade-slide"
-              style={{
-                display: "flex",
-                alignItems: "flex-start",
-                gap: 12,
-                padding: "11px 0",
-                borderBottom: "1px solid #EDE8E1",
-                animationDelay: `${200 + i * 40}ms`,
-              }}
-            >
+            <div key={`c-${c.id}`} className="fade-slide" style={rowStyle}>
               <Avatar handle={handle} displayName={displayName} size={28} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 480, color: "#1C1917", lineHeight: 1.3 }}>
@@ -95,24 +93,13 @@ export function ExpenseFeed({ expenses, contributions, members, currentUserAddre
           )
         }
 
-  const e = item.data
+        const e = item.data
         const handle = e.paid_by_username || e.paid_by_address.slice(0, 8)
-        const displayName = e.paid_by_username || undefined
-        const isMe = e.paid_by_address === currentUserAddress
+        const isMe = meAddress ? e.paid_by_address === meAddress : false
+        const displayName = isMe && username ? username : e.paid_by_username || undefined
 
         return (
-          <div
-            key={`e-${e.id}`}
-            className="fade-slide"
-            style={{
-              display: "flex",
-              alignItems: "flex-start",
-              gap: 12,
-              padding: "11px 0",
-              borderBottom: "1px solid #EDE8E1",
-              animationDelay: `${200 + i * 40}ms`,
-            }}
-          >
+          <div key={`e-${e.id}`} className="fade-slide" style={rowStyle}>
             <Avatar handle={handle} displayName={displayName} size={28} />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14, fontWeight: 480, color: "#1C1917", lineHeight: 1.3 }}>
@@ -120,7 +107,7 @@ export function ExpenseFeed({ expenses, contributions, members, currentUserAddre
               </div>
               <div style={{ fontSize: 12, color: "#A8A29E", marginTop: 2 }}>
                 {isMe ? "You paid" : `${displayName || handle} paid`}
-                {" · "}split {e.split_between.length} ways
+                {" · "}split {e.split_between.length} way{e.split_between.length === 1 ? "" : "s"}
                 {" · "}{formatDistanceToNow(item.date, { addSuffix: true })}
                 {e.reimbursed && " · settled"}
               </div>

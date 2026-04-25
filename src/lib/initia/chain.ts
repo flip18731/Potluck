@@ -1,12 +1,21 @@
+/** Live Initia testnet — initiation-2 (no mock endpoints). */
+export const INITIA_CHAIN_ID = "initiation-2" as const
+
+/** Primary on-chain denom for initiation-2 bank sends (strict). */
+export const UINIT_DENOM = "uinit" as const
+
+/** 1 INIT = 1_000_000 uinit; use bigint uinit in logic, INIT in UI via fromMicro/formatAmount */
 export const INITIA_TESTNET = {
-  chainId: "initiation-2",
+  chainId: INITIA_CHAIN_ID,
   chainName: "Initia Testnet",
   rpcUrl: process.env.NEXT_PUBLIC_INITIA_RPC_URL || "https://rpc.testnet.initia.xyz",
-  restUrl: process.env.NEXT_PUBLIC_INITIA_REST_URL || "https://rest.testnet.initia.xyz",
+  /** LCD (REST) — bank balances, txs, modules */
+  lcdUrl: process.env.NEXT_PUBLIC_INITIA_LCD_URL || "https://lcd.testnet.initia.xyz",
+  restUrl: process.env.NEXT_PUBLIC_INITIA_LCD_URL || process.env.NEXT_PUBLIC_INITIA_REST_URL || "https://lcd.testnet.initia.xyz",
   explorerUrl: "https://scan.testnet.initia.xyz",
-  faucetUrl: "https://faucet.testnet.initia.xyz",
+  faucetUrl: process.env.NEXT_PUBLIC_INITIA_FAUCET_URL || "https://faucet.testnet.initia.xyz",
   bech32Prefix: "init",
-  feeDenom: process.env.NEXT_PUBLIC_FEE_DENOM || "uinit",
+  feeDenom: process.env.NEXT_PUBLIC_FEE_DENOM || UINIT_DENOM,
   gasPrice: "0.015",
 }
 
@@ -40,23 +49,22 @@ export function parseMicroAmount(amount: string): bigint | null {
   return whole * MICRO + fraction
 }
 
-export function toMicro(amount: string | number): bigint {
-  const raw = typeof amount === "number" ? amount.toString() : amount
-  const parsed = parseMicroAmount(raw)
+export function toMicro(amount: string): bigint {
+  const parsed = parseMicroAmount(amount)
   if (parsed === null) {
     throw new Error("Invalid amount format")
   }
   return parsed
 }
 
-export function fromMicro(uamount: bigint | string | number): string {
-  const n = typeof uamount === "bigint" ? uamount : BigInt(uamount.toString())
+export function fromMicro(uamount: bigint | string): string {
+  const n = typeof uamount === "bigint" ? uamount : BigInt(uamount)
   const whole = n / MICRO
   const frac = n % MICRO
   if (frac === 0n) return whole.toString()
   return `${whole}.${frac.toString().padStart(6, "0").replace(/0+$/, "")}`
 }
 
-export function formatAmount(uamount: bigint | string | number, denom = "INIT"): string {
+export function formatAmount(uamount: bigint | string, denom = "INIT"): string {
   return `${fromMicro(uamount)} ${denom}`
 }

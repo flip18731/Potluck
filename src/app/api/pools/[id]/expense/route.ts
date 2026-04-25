@@ -15,8 +15,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     reimbursedFromPool,
   } = body
 
-  if (!description || !amount || !paidByAddress || !splitBetween?.length) {
+  if (!description || amount === undefined || amount === null || !paidByAddress || !splitBetween?.length) {
     return NextResponse.json({ error: "Missing required fields" }, { status: 400 })
+  }
+
+  let amountMicroStr: string
+  try {
+    amountMicroStr = BigInt(String(amount)).toString()
+    if (BigInt(amountMicroStr) <= 0n) {
+      return NextResponse.json({ error: "Amount must be greater than zero" }, { status: 400 })
+    }
+  } catch {
+    return NextResponse.json({ error: "Invalid amount" }, { status: 400 })
   }
 
   const db = getServiceSupabase()
@@ -40,7 +50,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // If paid out-of-pocket and auto-reimburse is requested, send from treasury
   if (reimbursedFromPool) {
     try {
-      const { txhash } = await sendFromTreasury(paidByAddress, amount.toString(), pool.denom)
+      const { txhash } = await sendFromTreasury(paidByAddress, amountMicroStr, pool.denom)
       reimburseTxHash = txhash
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Treasury send failed"
@@ -53,7 +63,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .insert({
       pool_id: id,
       description,
-      amount: amount.toString(),
+      amount: amountMicroStr,
       paid_by_address: paidByAddress,
       paid_by_username: paidByUsername ?? null,
       split_between: splitBetween,

@@ -1,8 +1,11 @@
 import { INITIA_TESTNET } from "./chain"
 
-const REST = INITIA_TESTNET.restUrl
+const REST = INITIA_TESTNET.lcdUrl
 
-/** Resolve .init username → address via Initia REST (move module) */
+/**
+ * Server / invite flows: resolve another member’s name or address.
+ * For the **connected** user’s `.init` handle, use `useInterwovenKit().username` only.
+ */
 export async function resolveUsername(username: string): Promise<string | null> {
   try {
     // Initia usernames are stored as Move resources on-chain.

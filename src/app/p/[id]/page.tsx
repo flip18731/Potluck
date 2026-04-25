@@ -1,20 +1,28 @@
 "use client"
 
 import { useInterwovenKit } from "@initia/interwovenkit-react"
+import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { use, useState, useRef, Fragment, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { AppNav, OneTapPill } from "@/components/chrome/AppNav"
-import { Avatar, AvatarStack } from "@/components/ui/Avatar"
+import { AvatarStack } from "@/components/ui/Avatar"
 import { CTABtn } from "@/components/ui/CTABtn"
 import { BalanceBoard } from "@/components/potluck/BalanceBoard"
 import { ExpenseFeed } from "@/components/potluck/ExpenseFeed"
 import { AddExpenseModal } from "@/components/potluck/AddExpenseModal"
 import { AutoSignPrompt } from "@/components/potluck/AutoSignPrompt"
-import { fromMicro, parseMicroAmount, INITIA_TESTNET } from "@/lib/initia/chain"
-import { isAutoSignEnabled, autoSignExpiresIn, formatExpiry } from "@/lib/initia/autosign"
+import { fromMicro, parseMicroAmount, INITIA_TESTNET, UINIT_DENOM } from "@/lib/initia/chain"
+import { useOnChainUinitBalance } from "@/lib/initia/on-chain-balance"
+import {
+  AUTOSIGN_CHANGED_EVENT,
+  isAutoSignEnabled,
+  autoSignExpiresIn,
+  formatExpiry,
+} from "@/lib/initia/autosign"
 import { toast } from "sonner"
 import { HEARTH } from "@/lib/design/tokens"
+import { humanizeTxError } from "@/lib/initia/tx-errors"
 
 interface PoolData {
   pool: {
@@ -70,14 +78,7 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
   const [inputFocused, setInputFocused] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const [autoSignOn, setAutoSignOn] = useState(() => {
-    if (typeof window === "undefined") return false
-    return isAutoSignEnabled(id)
-  })
-  const [autoSignExpiry, setAutoSignExpiry] = useState(() => {
-    if (typeof window === "undefined") return 0
-    return autoSignExpiresIn(id)
-  })
+  const [, setAutoSignBump] = useState(0)
 
   const { data, isLoading } = useQuery<PoolData>({
     queryKey: ["pool", id],
@@ -86,19 +87,32 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
       if (!res.ok) throw new Error("Pool not found")
       return res.json()
     },
-    refetchInterval: 5000,
+    refetchInterval: 2000,
+  })
+
+  const potAddress =
+    (process.env.NEXT_PUBLIC_POOL_CONTRACT_ADDRESS || process.env.NEXT_PUBLIC_TREASURY_ADDRESS || "").trim() ||
+    ""
+  const { data: onChainPotBalance = 0n } = useOnChainUinitBalance(potAddress || undefined, {
+    refetchInterval: 2000,
+    enabled: !!potAddress,
   })
 
   useEffect(() => {
-    setAutoSignOn(isAutoSignEnabled(id))
-    setAutoSignExpiry(autoSignExpiresIn(id))
-  }, [data, id])
+    const onChange = () => {
+      queueMicrotask(() => setAutoSignBump((n) => n + 1))
+    }
+    window.addEventListener(AUTOSIGN_CHANGED_EVENT, onChange)
+    return () => window.removeEventListener(AUTOSIGN_CHANGED_EVENT, onChange)
+  }, [])
+
+  const autoSignOn = typeof window !== "undefined" && isAutoSignEnabled(id)
+  const autoSignExpiry = typeof window !== "undefined" ? autoSignExpiresIn(id) : 0
 
   const pool = data?.pool
   const isMember = pool?.members.some((m) => m.address === address)
   const isCreator = pool?.creator_address === address
 
-  const totalContributed = data?.contributions.reduce((sum, c) => sum + BigInt(c.amount), 0n) ?? 0n
   const totalExpenses = data?.expenses.reduce((sum, e) => sum + BigInt(e.amount), 0n) ?? 0n
   const memberCount = pool?.members.length ?? 0
   const perPerson = memberCount > 0 && totalExpenses > 0n ? totalExpenses / BigInt(memberCount) : 0n
@@ -123,16 +137,16 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
         messages: [
           {
             typeUrl: "/cosmos.bank.v1beta1.MsgSend",
-            value: {
+            value: MsgSend.fromPartial({
               fromAddress: address,
               toAddress: treasuryAddress,
-              amount: [{ denom: pool?.denom || "uinit", amount: amountMicroStr }],
-            },
+              amount: [{ denom: UINIT_DENOM, amount: amountMicroStr }],
+            }),
           },
         ],
       })
 
-      await fetch(`/api/pools/${id}/contribute`, {
+      const contribRes = await fetch(`/api/pools/${id}/contribute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -142,10 +156,17 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
           txHash: transactionHash,
         }),
       })
+      const contribJson = await contribRes.json().catch(() => ({}))
+      if (!contribRes.ok) {
+        throw new Error(
+          typeof contribJson?.error === "string" ? contribJson.error : "Could not record your contribution"
+        )
+      }
 
       setContributed(true)
       setLastContributionMicro(amountMicro)
-      queryClient.invalidateQueries({ queryKey: ["pool", id] })
+      await queryClient.invalidateQueries({ queryKey: ["pool", id] })
+      await queryClient.invalidateQueries({ queryKey: ["onchain-uinit-balance"] })
       toast.success(`Brought ${fromMicro(amountMicro)} INIT to the table!`, {
         action: {
           label: "View",
@@ -153,7 +174,7 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
         },
       })
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Transaction failed")
+      toast.error(humanizeTxError(e))
     } finally {
       setContributing(false)
     }
@@ -262,7 +283,10 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
             {/* Stats cluster */}
             <div style={{ display: "flex", gap: 0 }}>
               {[
-                { label: "Pot balance", value: fromMicro(totalContributed) + " INIT" },
+                {
+                  label: "Pot balance",
+                  value: potAddress ? `${fromMicro(onChainPotBalance)} INIT` : "—",
+                },
                 { label: "The spread", value: fromMicro(totalExpenses) + " INIT" },
                 { label: "Per person", value: perPerson > 0n ? fromMicro(perPerson) + " INIT" : "—" },
               ].map((stat, i) => (
@@ -306,8 +330,6 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
           <section aria-labelledby="balance-heading" style={{ marginBottom: 36 }}>
             <BalanceBoard
               balances={data?.balances ?? []}
-              denom={pool.denom}
-              poolStatus={pool.status}
               currentUserAddress={address}
             />
           </section>
@@ -333,7 +355,6 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
             <ExpenseFeed
               expenses={data?.expenses ?? []}
               contributions={data?.contributions ?? []}
-              members={pool.members}
               currentUserAddress={address}
             />
 
@@ -342,7 +363,6 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
               <AddExpenseModal
                 poolId={id}
                 members={pool.members}
-                denom={pool.denom}
                 onSuccess={() => queryClient.invalidateQueries({ queryKey: ["pool", id] })}
                 trigger={
                   <button
@@ -587,7 +607,7 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
               {pool.status === "open" ? (
                 <p style={{ margin: 0, fontSize: 12.5, color: "#78716C", lineHeight: 1.55 }}>
                   <span style={{ fontWeight: 520, color: "#4A3D35" }}>Clear the table</span>
-                  {" "}is available once everyone's covered. The host can close the potluck when all balances are settled.
+                  {" "}is available once everyone{"\u2019"}s covered. The host can close the potluck when all balances are settled.
                 </p>
               ) : (
                 <p style={{ margin: 0, fontSize: 12.5, color: "#78716C", lineHeight: 1.55 }}>

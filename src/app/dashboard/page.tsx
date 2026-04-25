@@ -9,6 +9,7 @@ import { AppNav } from "@/components/chrome/AppNav"
 import { CTABtn } from "@/components/ui/CTABtn"
 import { HEARTH } from "@/lib/design/tokens"
 import { DbPool } from "@/lib/potluck/types"
+import { atInitHandle } from "@/lib/initia/display"
 import { useState } from "react"
 
 function useMyPotlucks(address: string | undefined) {
@@ -30,7 +31,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const { data: pools, isLoading } = useMyPotlucks(address)
 
-  const displayName = username || (address ? address.slice(0, 12) + "…" : null)
+  const displayName = username ? atInitHandle(username) : address ? `${address.slice(0, 12)}…` : null
 
   return (
     <div
@@ -79,7 +80,7 @@ export default function DashboardPage() {
               Your potlucks
             </h1>
             <p style={{ fontSize: 13, color: "#A8A29E", margin: 0 }}>
-              {displayName ? `@${displayName}` : ""}
+              {displayName ?? ""}
             </p>
           </div>
         </div>
@@ -124,19 +125,7 @@ export default function DashboardPage() {
 
         {/* Loading */}
         {address && isLoading && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                style={{
-                  backgroundColor: "#F0EBE3",
-                  borderRadius: 10,
-                  height: 72,
-                  animation: "pulse 1.5s ease-in-out infinite",
-                }}
-              />
-            ))}
-          </div>
+          <div style={{ fontSize: 14, color: "#C4BAB0", padding: "24px 0" }}>Loading your potlucks…</div>
         )}
 
         {/* Empty state */}

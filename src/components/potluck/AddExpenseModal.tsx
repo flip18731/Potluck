@@ -1,13 +1,16 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useQueryClient } from "@tanstack/react-query"
 import { useInterwovenKit } from "@initia/interwovenkit-react"
+import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
 import { Avatar } from "@/components/ui/Avatar"
 import { CTABtn } from "@/components/ui/CTABtn"
 import { toast } from "sonner"
-import { parseMicroAmount, fromMicro } from "@/lib/initia/chain"
+import { parseMicroAmount, fromMicro, UINIT_DENOM } from "@/lib/initia/chain"
 import { formatIdentity } from "@/lib/initia/username"
 import { HEARTH } from "@/lib/design/tokens"
+import { humanizeTxError } from "@/lib/initia/tx-errors"
 
 interface Member {
   address: string
@@ -17,13 +20,13 @@ interface Member {
 interface AddExpenseModalProps {
   poolId: string
   members: Member[]
-  denom: string
   onSuccess: () => void
   trigger?: React.ReactNode
 }
 
-export function AddExpenseModal({ poolId, members, denom, onSuccess, trigger }: AddExpenseModalProps) {
-  const { address } = useInterwovenKit()
+export function AddExpenseModal({ poolId, members, onSuccess, trigger }: AddExpenseModalProps) {
+  const queryClient = useQueryClient()
+  const { address, requestTxBlock } = useInterwovenKit()
   const [open, setOpen] = useState(false)
   const [description, setDescription] = useState("")
   const [amount, setAmount] = useState("")
@@ -31,13 +34,23 @@ export function AddExpenseModal({ poolId, members, denom, onSuccess, trigger }: 
   const [splitBetween, setSplitBetween] = useState<string[]>(members.map((m) => m.address))
   const [loading, setLoading] = useState(false)
   const amountMicro = parseMicroAmount(amount)
-
+  const transferTarget = process.env.NEXT_PUBLIC_POOL_CONTRACT_ADDRESS || process.env.NEXT_PUBLIC_TREASURY_ADDRESS
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false) }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
   }, [open])
+
+  const openModal = () => {
+    if (members.length > 0) {
+      setSplitBetween(members.map((m) => m.address))
+      setPaidByAddress((prev) =>
+        members.some((m) => m.address === prev) ? prev : (address || members[0]?.address || "")
+      )
+    }
+    setOpen(true)
+  }
 
   const toggleSplit = (addr: string) => {
     setSplitBetween((prev) =>
@@ -46,15 +59,34 @@ export function AddExpenseModal({ poolId, members, denom, onSuccess, trigger }: 
   }
 
   const handleSubmit = async () => {
+    if (!address) { toast.error("Connect your account first"); return }
     if (!description.trim()) { toast.error("Add a description"); return }
     if (!amountMicro || amountMicro <= 0n) { toast.error("Enter a valid amount"); return }
     if (splitBetween.length === 0) { toast.error("Select at least one person to split between"); return }
     if (!paidByAddress) { toast.error("Select who paid"); return }
+    if (!transferTarget) { toast.error("Pool destination not configured"); return }
+    if (paidByAddress !== address) {
+      toast.error("Only the paying member can submit this expense")
+      return
+    }
 
     setLoading(true)
     try {
       const amountMicroStr = amountMicro.toString()
       const paidByMember = members.find((m) => m.address === paidByAddress)
+
+      const { transactionHash } = await requestTxBlock({
+        messages: [
+          {
+            typeUrl: "/cosmos.bank.v1beta1.MsgSend",
+            value: MsgSend.fromPartial({
+              fromAddress: address,
+              toAddress: transferTarget,
+              amount: [{ denom: UINIT_DENOM, amount: amountMicroStr }],
+            }),
+          },
+        ],
+      })
 
       const res = await fetch(`/api/pools/${poolId}/expense`, {
         method: "POST",
@@ -66,15 +98,19 @@ export function AddExpenseModal({ poolId, members, denom, onSuccess, trigger }: 
           paidByUsername: paidByMember?.username ?? null,
           splitBetween,
           reimbursedFromPool: true,
+          txHash: transactionHash,
         }),
       })
 
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Failed to add expense")
+      if (!res.ok) throw new Error(typeof data?.error === "string" ? data.error : "Failed to add expense")
+
+      await queryClient.invalidateQueries({ queryKey: ["pool", poolId] })
+      await queryClient.invalidateQueries({ queryKey: ["onchain-uinit-balance"] })
 
       const paidByDisplay = formatIdentity(paidByAddress, paidByMember?.username ?? null)
       toast.success(`Passing the plate to ${paidByDisplay}`, {
-        description: `${description}: ${amount} INIT`,
+        description: `${description}: ${fromMicro(amountMicro)} INIT`,
       })
 
       setDescription("")
@@ -82,7 +118,7 @@ export function AddExpenseModal({ poolId, members, denom, onSuccess, trigger }: 
       setOpen(false)
       onSuccess()
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Something went wrong")
+      toast.error(humanizeTxError(e))
     } finally {
       setLoading(false)
     }
@@ -94,7 +130,7 @@ export function AddExpenseModal({ poolId, members, denom, onSuccess, trigger }: 
 
   return (
     <>
-      <div onClick={() => setOpen(true)} style={{ display: "contents" }}>
+      <div onClick={openModal} style={{ display: "contents" }}>
         {trigger}
       </div>
 
@@ -278,11 +314,12 @@ export function AddExpenseModal({ poolId, members, denom, onSuccess, trigger }: 
               {/* Info note */}
               <div style={{ backgroundColor: "#FDF3E8", border: "1px solid #F0E0C8", borderRadius: 7, padding: "10px 12px" }}>
                 <p style={{ fontSize: 12, color: "#78716C", margin: 0, lineHeight: 1.5 }}>
-                  The shared pot will send {amountMicro ? fromMicro(amountMicro) : "0"} INIT to{" "}
+                  This expense sends {amountMicro ? fromMicro(amountMicro) : "0"} INIT and logs the reimbursement instantly for the group.
+                  {" "}
                   <strong style={{ color: "#4A3D35" }}>
                     {formatIdentity(paidByAddress, members.find(m => m.address === paidByAddress)?.username ?? null)}
                   </strong>{" "}
-                  automatically.
+                  is marked as the payer.
                 </p>
               </div>
 

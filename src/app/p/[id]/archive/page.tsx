@@ -181,8 +181,6 @@ export default function ArchivePage({ params }: { params: Promise<{ id: string }
           <section style={{ marginBottom: 36 }}>
             <BalanceBoard
               balances={data?.balances ?? []}
-              denom={pool.denom}
-              poolStatus="closed"
               currentUserAddress={address}
             />
           </section>
@@ -196,7 +194,6 @@ export default function ArchivePage({ params }: { params: Promise<{ id: string }
             <ExpenseFeed
               expenses={data?.expenses ?? []}
               contributions={data?.contributions ?? []}
-              members={pool.members}
               currentUserAddress={address}
             />
           </section>

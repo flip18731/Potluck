@@ -4,6 +4,15 @@
 
 const AUTO_SIGN_KEY = "potluck:autosign"
 
+/** Fired on enable/revoke so UI can re-read session state without syncing in an effect. */
+export const AUTOSIGN_CHANGED_EVENT = "potluck-autosign-changed"
+
+function notifyAutoSignChanged() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(AUTOSIGN_CHANGED_EVENT))
+  }
+}
+
 interface AutoSignSession {
   poolId: string
   grantedAt: number
@@ -32,11 +41,13 @@ export function enableAutoSign(poolId: string): void {
     expiresAt: Date.now() + 24 * 60 * 60 * 1000,
   })
   saveSessions(sessions)
+  notifyAutoSignChanged()
 }
 
 /** Revoke auto-sign for a potluck */
 export function revokeAutoSign(poolId: string): void {
   saveSessions(getSessions().filter((s) => s.poolId !== poolId))
+  notifyAutoSignChanged()
 }
 
 /** Check if auto-sign is active for a potluck */

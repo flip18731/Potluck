@@ -58,6 +58,9 @@ body {
 /* Tabular figures for all monetary values */
 .tabular { font-variant-numeric: tabular-nums; }
 
+@keyframes potluck-spin { to { transform: rotate(360deg); } }
+.potluck-spin { animation: potluck-spin 0.75s linear infinite; transform-origin: center; }
+
 /* Remove number input spinners */
 input[type=number]::-webkit-inner-spin-button,
 input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }

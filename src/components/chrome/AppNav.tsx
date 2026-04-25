@@ -2,7 +2,9 @@
 
 import { ReactNode } from "react"
 import { useRouter } from "next/navigation"
+import { useInterwovenKit } from "@initia/interwovenkit-react"
 import { CREAM } from "@/lib/design/tokens"
+import { atInitHandle } from "@/lib/initia/display"
 
 interface AppNavProps {
   backLabel?: string
@@ -12,6 +14,7 @@ interface AppNavProps {
 
 export function AppNav({ backLabel = "Dashboard", backHref, right }: AppNavProps) {
   const router = useRouter()
+  const { username, isConnected } = useInterwovenKit()
 
   const handleBack = () => {
     if (backHref) router.push(backHref)
@@ -68,7 +71,14 @@ export function AppNav({ backLabel = "Dashboard", backHref, right }: AppNavProps
         ) : (
           <div />
         )}
-        {right && <div style={{ display: "flex", alignItems: "center", gap: 10 }}>{right}</div>}
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {isConnected && username && (
+            <span className="tabular" style={{ fontSize: 12, color: "#A8A29E" }}>
+              {atInitHandle(username)}
+            </span>
+          )}
+          {right}
+        </div>
       </div>
     </nav>
   )

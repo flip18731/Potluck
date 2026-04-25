@@ -1,8 +1,8 @@
-import { INITIA_TESTNET } from "./chain"
+import { INITIA_TESTNET, UINIT_DENOM } from "./chain"
 
 /** Fetch from Initia REST API */
 export async function initiaRest<T>(path: string): Promise<T> {
-  const res = await fetch(`${INITIA_TESTNET.restUrl}${path}`, {
+  const res = await fetch(`${INITIA_TESTNET.lcdUrl}${path}`, {
     next: { revalidate: 10 },
   })
   if (!res.ok) throw new Error(`Initia REST ${path}: ${res.status}`)
@@ -15,7 +15,7 @@ export async function getBalance(address: string): Promise<bigint> {
     const data = await initiaRest<{
       balances: Array<{ denom: string; amount: string }>
     }>(`/cosmos/bank/v1beta1/balances/${address}`)
-    const uinit = data.balances.find((b) => b.denom === "uinit")
+    const uinit = data.balances.find((b) => b.denom === UINIT_DENOM)
     return BigInt(uinit?.amount ?? "0")
   } catch {
     return 0n
@@ -24,7 +24,7 @@ export async function getBalance(address: string): Promise<bigint> {
 
 /** Broadcast a pre-signed tx (base64 encoded) */
 export async function broadcastTx(txBytes: string): Promise<{ txhash: string }> {
-  const res = await fetch(`${INITIA_TESTNET.restUrl}/cosmos/tx/v1beta1/txs`, {
+  const res = await fetch(`${INITIA_TESTNET.lcdUrl}/cosmos/tx/v1beta1/txs`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ tx_bytes: txBytes, mode: "BROADCAST_MODE_SYNC" }),

@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServiceSupabase } from "@/lib/db/supabase"
-import { DbPool } from "@/lib/potluck/types"
-
 // GET /api/pools?member=<address>
 export async function GET(req: NextRequest) {
   const member = req.nextUrl.searchParams.get("member")

@@ -1,9 +1,9 @@
-// Treasury pattern: backend-controlled wallet signs and broadcasts MsgSend
+// Treasury: server-side account signs and broadcasts MsgSend for reimbursements / settlement.
 // Used for reimbursing expenses and settling balances on behalf of the pool.
 
 import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing"
 import { SigningStargateClient, GasPrice, coins } from "@cosmjs/stargate"
-import { INITIA_TESTNET } from "./chain"
+import { INITIA_TESTNET, UINIT_DENOM } from "./chain"
 
 let walletCache: DirectSecp256k1HdWallet | null = null
 let clientCache: SigningStargateClient | null = null
@@ -27,7 +27,7 @@ async function getTreasuryClient() {
     clientCache = await SigningStargateClient.connectWithSigner(
       INITIA_TESTNET.rpcUrl,
       walletCache,
-      { gasPrice: GasPrice.fromString(`0.015${INITIA_TESTNET.feeDenom}`) }
+      { gasPrice: GasPrice.fromString(`0.015${UINIT_DENOM}`) }
     )
   }
 
@@ -46,15 +46,15 @@ export async function getTreasuryAddress(): Promise<string> {
 export async function sendFromTreasury(
   to: string,
   amountUinit: string,
-  denom = "uinit"
+  denom: string = UINIT_DENOM
 ): Promise<{ txhash: string }> {
   const { wallet, client } = await getTreasuryClient()
   const [account] = await wallet.getAccounts()
   const from = account.address
 
   const result = await client.sendTokens(from, to, coins(amountUinit, denom), "auto")
-  if ((result as any).code !== 0) {
-    throw new Error((result as any).rawLog || "Transaction failed")
+  if (result.code !== 0) {
+    throw new Error(result.rawLog || "Transaction failed")
   }
   return { txhash: result.transactionHash }
 }
@@ -73,7 +73,7 @@ export async function batchSendFromTreasury(
       value: {
         fromAddress: from,
         toAddress: t.to,
-        amount: coins(t.amount, t.denom ?? "uinit"),
+        amount: coins(t.amount, t.denom ?? UINIT_DENOM),
       },
     }))
 
@@ -82,8 +82,8 @@ export async function batchSendFromTreasury(
   }
 
   const result = await client.signAndBroadcast(from, messages, "auto")
-  if ((result as any).code !== 0) {
-    throw new Error((result as any).rawLog || "Transaction failed")
+  if (result.code !== 0) {
+    throw new Error(result.rawLog || "Transaction failed")
   }
   return { txhash: result.transactionHash }
 }

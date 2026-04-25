@@ -2,21 +2,24 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useInterwovenKit } from "@initia/interwovenkit-react"
+import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
 import { CTABtn } from "@/components/ui/CTABtn"
 import { toast } from "sonner"
-import { parseMicroAmount, fromMicro, INITIA_TESTNET } from "@/lib/initia/chain"
+import { useQueryClient } from "@tanstack/react-query"
+import { parseMicroAmount, fromMicro, INITIA_TESTNET, UINIT_DENOM } from "@/lib/initia/chain"
 import { isAutoSignEnabled } from "@/lib/initia/autosign"
+import { humanizeTxError } from "@/lib/initia/tx-errors"
 import { HEARTH } from "@/lib/design/tokens"
 
 interface ContributionModalProps {
   poolId: string
   poolName: string
-  denom: string
   onSuccess: () => void
   trigger?: React.ReactNode
 }
 
-export function ContributionModal({ poolId, poolName, denom, onSuccess, trigger }: ContributionModalProps) {
+export function ContributionModal({ poolId, poolName, onSuccess, trigger }: ContributionModalProps) {
+  const queryClient = useQueryClient()
   const { address, username, requestTxBlock } = useInterwovenKit()
   const [open, setOpen] = useState(false)
   const [amount, setAmount] = useState("")
@@ -48,16 +51,16 @@ export function ContributionModal({ poolId, poolName, denom, onSuccess, trigger 
         messages: [
           {
             typeUrl: "/cosmos.bank.v1beta1.MsgSend",
-            value: {
+            value: MsgSend.fromPartial({
               fromAddress: address,
               toAddress: treasuryAddress,
-              amount: [{ denom: denom || "uinit", amount: amountMicroStr }],
-            },
+              amount: [{ denom: UINIT_DENOM, amount: amountMicroStr }],
+            }),
           },
         ],
       })
 
-      await fetch(`/api/pools/${poolId}/contribute`, {
+      const contribRes = await fetch(`/api/pools/${poolId}/contribute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -67,10 +70,19 @@ export function ContributionModal({ poolId, poolName, denom, onSuccess, trigger 
           txHash: transactionHash,
         }),
       })
+      const contribJson = await contribRes.json().catch(() => ({}))
+      if (!contribRes.ok) {
+        throw new Error(
+          typeof contribJson?.error === "string" ? contribJson.error : "Could not record your contribution"
+        )
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["pool", poolId] })
+      await queryClient.invalidateQueries({ queryKey: ["onchain-uinit-balance"] })
 
       setLastContributionMicro(amountMicro)
       toast.success(`Brought ${fromMicro(amountMicro)} INIT to the table!`, {
-        description: `Tx: ${transactionHash.slice(0, 20)}…`,
+        description: `Receipt: ${transactionHash.slice(0, 20)}…`,
         action: {
           label: "View",
           onClick: () => window.open(`${INITIA_TESTNET.explorerUrl}/txs/${transactionHash}`, "_blank"),
@@ -80,7 +92,7 @@ export function ContributionModal({ poolId, poolName, denom, onSuccess, trigger 
       setOpen(false)
       onSuccess()
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Transaction failed")
+      toast.error(humanizeTxError(e))
     } finally {
       setLoading(false)
     }
