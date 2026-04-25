@@ -1,7 +1,7 @@
-@import "tailwindcss";
-
-/* ── DM Sans from Google Fonts ───────────────────────────── */
+/* ── DM Sans from Google Fonts (must precede other @import) ─ */
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,450;9..40,500;9..40,600;9..40,700&display=swap');
+
+@import "tailwindcss";
 
 /* ── Tailwind v4 Design Tokens ───────────────────────────── */
 @theme inline {
