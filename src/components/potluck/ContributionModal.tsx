@@ -1,32 +1,37 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useInterwovenKit } from "@initia/interwovenkit-react"
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { CTABtn } from "@/components/ui/CTABtn"
 import { toast } from "sonner"
-import { toMicro, INITIA_TESTNET } from "@/lib/initia/chain"
+import { toMicro, fromMicro, INITIA_TESTNET } from "@/lib/initia/chain"
 import { isAutoSignEnabled } from "@/lib/initia/autosign"
-import { Loader2, Wallet } from "lucide-react"
+import { HEARTH } from "@/lib/design/tokens"
 
 interface ContributionModalProps {
   poolId: string
   poolName: string
   denom: string
   onSuccess: () => void
+  trigger?: React.ReactNode
 }
 
-export function ContributionModal({ poolId, poolName, denom, onSuccess }: ContributionModalProps) {
+export function ContributionModal({ poolId, poolName, denom, onSuccess, trigger }: ContributionModalProps) {
   const { address, username, requestTxBlock } = useInterwovenKit()
   const [open, setOpen] = useState(false)
   const [amount, setAmount] = useState("")
   const [loading, setLoading] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   const treasuryAddress = process.env.NEXT_PUBLIC_TREASURY_ADDRESS!
+
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false) }
+    document.addEventListener("keydown", onKey)
+    setTimeout(() => inputRef.current?.focus(), 50)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [open])
 
   const handleContribute = async () => {
     if (!address) { toast.error("Connect your account first"); return }
@@ -37,7 +42,6 @@ export function ContributionModal({ poolId, poolName, denom, onSuccess }: Contri
     try {
       const amountMicro = toMicro(amount).toString()
 
-      // Send real MsgSend to treasury address with pool memo
       const { transactionHash } = await requestTxBlock({
         messages: [
           {
@@ -51,7 +55,6 @@ export function ContributionModal({ poolId, poolName, denom, onSuccess }: Contri
         ],
       })
 
-      // Record in DB
       await fetch(`/api/pools/${poolId}/contribute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -81,65 +84,141 @@ export function ContributionModal({ poolId, poolName, denom, onSuccess }: Contri
   }
 
   const autoSign = isAutoSignEnabled(poolId)
+  const amountVal = parseFloat(amount) || 0
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Wallet className="h-4 w-4" />
-          Bring your share
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Bring your share</DialogTitle>
-        </DialogHeader>
-        <div className="space-y-4 py-2">
-          <p className="text-sm text-zinc-500">
-            Contributing to <strong>{poolName}</strong>. Funds are held in the potluck treasury on Initia.
-          </p>
+    <>
+      <div onClick={() => setOpen(true)} style={{ display: "contents" }}>
+        {trigger}
+      </div>
 
-          <div>
-            <Label htmlFor="amount">Amount (INIT)</Label>
-            <Input
-              id="amount"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0.00"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="mt-1.5 text-xl font-mono"
-              onKeyDown={(e) => e.key === "Enter" && handleContribute()}
-            />
-            <p className="text-xs text-zinc-400 mt-1">= {amount ? toMicro(amount).toLocaleString() : 0} uinit</p>
-          </div>
-
-          {autoSign && (
-            <div className="flex items-center gap-2 text-xs text-emerald-600 bg-emerald-50 px-3 py-2 rounded-lg">
-              <span className="h-2 w-2 rounded-full bg-emerald-500" />
-              One-tap approval active — no popup needed
-            </div>
-          )}
-
-          <Button
-            className="w-full"
-            onClick={handleContribute}
-            disabled={loading || !amount || parseFloat(amount) <= 0}
+      {open && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            backgroundColor: "rgba(28,25,23,0.4)",
+            zIndex: 50,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "20px",
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setOpen(false) }}
+        >
+          <div
+            style={{
+              backgroundColor: "#FFFFFF",
+              border: "1px solid #E2D9CE",
+              borderRadius: 12,
+              width: "100%",
+              maxWidth: 400,
+              overflow: "hidden",
+            }}
           >
-            {loading ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Passing it over…</>
-            ) : (
-              `Bring ${amount || "0"} INIT to the table`
-            )}
-          </Button>
+            {/* Hearth accent bar */}
+            <div style={{ height: 3, backgroundColor: HEARTH }} />
 
-          <p className="text-xs text-zinc-400 text-center">
-            This sends a real on-chain transaction to the Potluck treasury.
-            Your contribution is trackable on InitiaScan.
-          </p>
+            <div style={{ padding: "22px 24px 26px" }}>
+              {/* Header */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 620, letterSpacing: "0.08em", textTransform: "uppercase", color: "#78716C" }}>
+                  Bring your share
+                </div>
+                <button
+                  onClick={() => setOpen(false)}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    color: "#C4BAB0",
+                    padding: 4,
+                    display: "flex",
+                    alignItems: "center",
+                    fontFamily: "inherit",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#78716C")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "#C4BAB0")}
+                  aria-label="Close"
+                >
+                  <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                    <path d="M2.5 2.5l10 10M12.5 2.5l-10 10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              </div>
+
+              <p style={{ fontSize: 13, color: "#A8A29E", marginBottom: 18 }}>
+                Contributing to <strong style={{ color: "#78716C" }}>{poolName}</strong>.
+                Funds are held on-chain in the Potluck treasury.
+              </p>
+
+              {/* Amount input */}
+              <label style={{ fontSize: 11.5, color: "#A8A29E", display: "block", marginBottom: 6 }}>
+                Amount
+              </label>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  border: "1px solid #DDD6CE",
+                  borderRadius: 6,
+                  overflow: "hidden",
+                  marginBottom: 10,
+                  transition: "border-color 0.15s, box-shadow 0.15s",
+                }}
+                onClick={() => inputRef.current?.focus()}
+              >
+                <span className="tabular" style={{ padding: "0 6px 0 12px", fontSize: 14, color: "#A8A29E", userSelect: "none", flexShrink: 0 }}>
+                  INIT
+                </span>
+                <input
+                  ref={inputRef}
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleContribute()}
+                  className="tabular"
+                  style={{
+                    flex: 1,
+                    padding: "10px 12px 10px 4px",
+                    fontSize: 16,
+                    fontWeight: 550,
+                    color: "#1C1917",
+                    background: "transparent",
+                    border: "none",
+                    outline: "none",
+                    width: "100%",
+                    fontFamily: "inherit",
+                  }}
+                  aria-label="Amount to bring"
+                />
+              </div>
+
+              {autoSign && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "#C07A38", backgroundColor: "#FDF3E8", padding: "8px 12px", borderRadius: 6, marginBottom: 10 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", backgroundColor: HEARTH }} />
+                  One-tap active — no popup needed
+                </div>
+              )}
+
+              <CTABtn
+                full
+                onClick={handleContribute}
+                disabled={loading || amountVal <= 0}
+              >
+                {loading ? "Sending…" : `Bring ${amountVal > 0 ? amountVal.toFixed(2) : "0"} INIT to the pot`}
+              </CTABtn>
+
+              <p style={{ textAlign: "center", fontSize: 11.5, color: "#C4BAB0", marginTop: 10 }}>
+                Settles instantly · visible to all members
+              </p>
+            </div>
+          </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      )}
+    </>
   )
 }

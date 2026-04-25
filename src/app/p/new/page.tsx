@@ -1,16 +1,12 @@
 "use client"
 
 import { useInterwovenKit } from "@initia/interwovenkit-react"
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { UsernameBadge } from "@/components/identity/UsernameBadge"
 import { toast } from "sonner"
-import { ChefHat, Plus, X, ArrowLeft, Loader2 } from "lucide-react"
-import Link from "next/link"
+import { AppNav } from "@/components/chrome/AppNav"
+import { CTABtn } from "@/components/ui/CTABtn"
+import { Avatar } from "@/components/ui/Avatar"
 
 interface MemberEntry {
   input: string
@@ -30,6 +26,8 @@ export default function NewPotluckPage() {
   const [memberInput, setMemberInput] = useState("")
   const [members, setMembers] = useState<MemberEntry[]>([])
   const [creating, setCreating] = useState(false)
+  const [memberAreaFocused, setMemberAreaFocused] = useState(false)
+  const memberInputRef = useRef<HTMLInputElement>(null)
 
   const resolveAndAdd = async () => {
     if (!memberInput.trim()) return
@@ -104,161 +102,284 @@ export default function NewPotluckPage() {
     }
   }
 
+  const labelStyle: React.CSSProperties = {
+    fontSize: 12.5,
+    color: "#78716C",
+    fontWeight: 500,
+    display: "block",
+    marginBottom: 7,
+  }
+
+  const optionalBadgeStyle: React.CSSProperties = {
+    fontSize: 11.5,
+    color: "#C4BAB0",
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: "100%",
+    padding: "10px 12px",
+    border: "1px solid #DDD6CE",
+    borderRadius: 6,
+    fontSize: 14,
+    color: "#1C1917",
+    backgroundColor: "#FFFFFF",
+    fontFamily: "inherit",
+    boxSizing: "border-box",
+    outline: "none",
+  }
+
   return (
-    <div className="min-h-screen bg-zinc-50">
-      <nav className="bg-white border-b border-zinc-200 px-6 py-4">
-        <div className="max-w-2xl mx-auto flex items-center gap-3">
-          <Link href="/dashboard">
-            <Button variant="ghost" size="sm">
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-          </Link>
-          <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-emerald-600 flex items-center justify-center">
-              <ChefHat className="h-4 w-4 text-white" />
-            </div>
-            <span className="font-bold text-zinc-900">Set the table</span>
+    <div style={{ minHeight: "100vh", backgroundColor: "#F8F5F0" }}>
+      <AppNav backLabel="Dashboard" backHref="/dashboard" />
+
+      <main style={{ maxWidth: 560, margin: "0 auto", padding: "48px 32px 64px" }}>
+        <h1
+          style={{
+            fontSize: 25,
+            fontWeight: 640,
+            letterSpacing: "-0.025em",
+            color: "#1C1917",
+            marginBottom: 6,
+            margin: "0 0 6px",
+          }}
+        >
+          Set the table
+        </h1>
+        <p
+          style={{
+            fontSize: 14,
+            color: "#A8A29E",
+            marginBottom: 36,
+            margin: "0 0 36px",
+          }}
+        >
+          Give your potluck a name and invite your group.
+        </p>
+
+        {/* Form fields */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 20, marginBottom: 32 }}>
+
+          {/* Name */}
+          <div>
+            <label style={labelStyle}>Name</label>
+            <input
+              className="field-input"
+              style={inputStyle}
+              placeholder="Ski Trip 2026, Barcelona August, …"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
           </div>
-        </div>
-      </nav>
 
-      <main className="max-w-2xl mx-auto px-6 py-8">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-zinc-900">Set the table</h1>
-          <p className="text-zinc-500 mt-1">Create a new shared potluck. Everyone brings their share — nobody holds the bag.</p>
-        </div>
+          {/* Description */}
+          <div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 7 }}>
+              <span style={labelStyle}>Description</span>
+              <span style={optionalBadgeStyle}>Optional</span>
+            </div>
+            <input
+              className="field-input"
+              style={inputStyle}
+              placeholder="A few words about the trip"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+            />
+          </div>
 
-        <div className="space-y-6">
-          {/* Basic info */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Potluck details</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="name">Name *</Label>
-                <Input
-                  id="name"
-                  placeholder="Ski Trip 2026, Barcelona August, ..."
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="mt-1.5"
-                />
-              </div>
-              <div>
-                <Label htmlFor="description">Description (optional)</Label>
-                <Input
-                  id="description"
-                  placeholder="What's this potluck for?"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  className="mt-1.5"
-                />
-              </div>
-              <div>
-                <Label htmlFor="endDate">End date (optional)</Label>
-                <Input
-                  id="endDate"
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="mt-1.5"
-                />
-              </div>
-            </CardContent>
-          </Card>
+          {/* End date */}
+          <div>
+            <div style={{ display: "flex", gap: 6, alignItems: "center", marginBottom: 7 }}>
+              <span style={labelStyle}>End date</span>
+              <span style={optionalBadgeStyle}>Optional</span>
+            </div>
+            <input
+              className="field-input"
+              type="date"
+              style={inputStyle}
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
 
-          {/* Members */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Invite guests</CardTitle>
-              <CardDescription>
-                Add friends by their .init username. You&apos;re already at the table as the host.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Creator */}
-              {address && (
-                <div className="flex items-center gap-2 p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-                  <UsernameBadge address={address} username={username} size="sm" />
-                  <span className="ml-auto text-xs text-emerald-600 font-medium">You (creator)</span>
-                </div>
-              )}
+          {/* Invite members */}
+          <div>
+            <label style={labelStyle}>Invite members</label>
 
-              {/* Added members */}
-              {members.map((m) => (
-                <div key={m.input} className={`flex items-center gap-2 p-3 rounded-lg border ${
-                  m.error ? "bg-red-50 border-red-200" : m.resolving ? "bg-zinc-50 border-zinc-200" : "bg-white border-zinc-200"
-                }`}>
-                  {m.resolving ? (
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
-                      <span className="text-sm text-zinc-500">Resolving {m.input}…</span>
+            {/* Member chip input area */}
+            <div
+              onClick={() => memberInputRef.current?.focus()}
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 6,
+                border: `1px solid ${memberAreaFocused ? "#C07A38" : "#DDD6CE"}`,
+                borderRadius: 7,
+                padding: "7px 10px",
+                backgroundColor: "#FFFFFF",
+                minHeight: 48,
+                cursor: "text",
+                transition: "border-color 0.15s",
+                alignItems: "center",
+              }}
+            >
+              {/* Resolved / resolving / error chips */}
+              {members.map((m) => {
+                if (m.resolving) {
+                  return (
+                    <div
+                      key={m.input}
+                      style={{
+                        backgroundColor: "#F5F0EA",
+                        borderRadius: 20,
+                        padding: "3px 8px",
+                        fontSize: 13,
+                        color: "#A8A29E",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                      }}
+                    >
+                      Resolving…
+                      <button
+                        onClick={(e) => { e.stopPropagation(); removeMember(m.input) }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#A8A29E",
+                          cursor: "pointer",
+                          fontSize: 15,
+                          lineHeight: 1,
+                          padding: 0,
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                      >
+                        ×
+                      </button>
                     </div>
-                  ) : m.error ? (
-                    <div>
-                      <p className="text-sm font-medium text-red-700">{m.input}</p>
-                      <p className="text-xs text-red-500">{m.error}</p>
+                  )
+                }
+                if (m.error) {
+                  return (
+                    <div
+                      key={m.input}
+                      style={{
+                        backgroundColor: "#FEF2F2",
+                        borderRadius: 20,
+                        padding: "3px 8px",
+                        fontSize: 13,
+                        color: "#DC2626",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 5,
+                      }}
+                    >
+                      {m.input} — not found
+                      <button
+                        onClick={(e) => { e.stopPropagation(); removeMember(m.input) }}
+                        style={{
+                          background: "none",
+                          border: "none",
+                          color: "#DC2626",
+                          cursor: "pointer",
+                          fontSize: 15,
+                          lineHeight: 1,
+                          padding: 0,
+                          display: "flex",
+                          alignItems: "center",
+                        }}
+                      >
+                        ×
+                      </button>
                     </div>
-                  ) : (
-                    <UsernameBadge address={m.address!} username={m.username} size="sm" />
-                  )}
-                  <button onClick={() => removeMember(m.input)} className="ml-auto text-zinc-400 hover:text-zinc-700">
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
+                  )
+                }
+                // resolved
+                const handle = m.username || m.input
+                return (
+                  <div
+                    key={m.input}
+                    style={{
+                      backgroundColor: "#F5F0EA",
+                      borderRadius: 20,
+                      padding: "3px 8px",
+                      fontSize: 13,
+                      color: "#5A4A3A",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 5,
+                    }}
+                  >
+                    <Avatar handle={handle} size={18} />
+                    @{handle}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); removeMember(m.input) }}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "#A8A29E",
+                        cursor: "pointer",
+                        fontSize: 15,
+                        lineHeight: 1,
+                        padding: 0,
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )
+              })}
 
-              {/* Add member input */}
-              <div className="flex gap-2">
-                <Input
-                  placeholder="@alice.init"
+              {/* Inline text input with @ prefix */}
+              <div style={{ display: "flex", alignItems: "center", flex: 1, minWidth: 100 }}>
+                <span style={{ fontSize: 13, color: "#C4BAB0", userSelect: "none" }}>@</span>
+                <input
+                  ref={memberInputRef}
+                  style={{
+                    flex: 1,
+                    fontSize: 13.5,
+                    border: "none",
+                    outline: "none",
+                    backgroundColor: "transparent",
+                    fontFamily: "inherit",
+                    color: "#1C1917",
+                    minWidth: 80,
+                  }}
+                  placeholder="handle.init"
                   value={memberInput}
                   onChange={(e) => setMemberInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && resolveAndAdd()}
+                  onFocus={() => setMemberAreaFocused(true)}
+                  onBlur={() => setMemberAreaFocused(false)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      resolveAndAdd()
+                    }
+                  }}
                 />
-                <Button variant="outline" onClick={resolveAndAdd} disabled={!memberInput.trim()}>
-                  <Plus className="h-4 w-4" />
-                  Add
-                </Button>
               </div>
-              <p className="text-xs text-zinc-400">
-                Friend not on Initia yet?{" "}
-                <a href="https://usernames.testnet.initia.xyz" target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">
-                  Send them here to claim their .init username
-                </a>
-              </p>
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Summary */}
-          <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-sm text-emerald-800">
-            <p className="font-medium mb-1">What happens next</p>
-            <ul className="space-y-1 text-emerald-700">
-              <li>• Your potluck is created in the registry</li>
-              <li>• Everyone can contribute funds (Bring your share)</li>
-              <li>• Add expenses and the plate is automatically passed to whoever paid</li>
-              <li>• When ready, Clear the table — everyone gets back what they&apos;re owed</li>
-            </ul>
+            <p style={{ fontSize: 12, color: "#A8A29E", marginTop: 6, margin: "6px 0 0" }}>
+              Type a handle and press Enter to add.
+            </p>
           </div>
-
-          <Button
-            size="lg"
-            className="w-full"
-            onClick={handleCreate}
-            disabled={creating || !name.trim()}
-          >
-            {creating ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Setting the table…
-              </>
-            ) : (
-              "Set the table"
-            )}
-          </Button>
         </div>
+
+        {/* Divider */}
+        <div style={{ height: 1, backgroundColor: "#EDE8E1", marginBottom: 24 }} />
+
+        {/* Submit */}
+        <CTABtn
+          full
+          size="md"
+          disabled={creating || !name.trim()}
+          onClick={handleCreate}
+        >
+          {creating ? "Setting the table…" : "Set the table →"}
+        </CTABtn>
       </main>
     </div>
   )

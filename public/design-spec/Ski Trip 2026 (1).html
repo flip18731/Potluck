@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Potluck — Ski Trip 2026</title>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,450;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            hearth: { DEFAULT: '#C07A38', light: '#FDF3E8', dark: '#9A5E28' },
+            cream: '#F8F5F0',
+          },
+          fontFamily: {
+            sans: ['"DM Sans"', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background-color: #F8F5F0;
+      color: #1C1917;
+      -webkit-font-smoothing: antialiased;
+    }
+    .tabular { font-variant-numeric: tabular-nums; }
+
+    @keyframes arcDraw {
+      from { stroke-dasharray: 0 200; opacity: 0; }
+      10% { opacity: 1; }
+    }
+    .arc-fill { animation: arcDraw 0.7s cubic-bezier(0.4, 0, 0.2, 1) both; }
+
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .fade-slide { animation: fadeSlide 0.3s ease both; }
+
+    .member-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 13px 0;
+      border-bottom: 1px solid #EDE8E1;
+    }
+    .member-row:last-child { border-bottom: none; }
+    .member-row.is-me { 
+      margin: 0 -4px; 
+      padding: 13px 4px; 
+      background: #FAF8F5; 
+      border-radius: 6px; 
+      border-bottom-color: transparent;
+    }
+
+    .net-positive { font-weight: 510; color: #1C1917; }
+    .net-negative { font-weight: 400; color: #A8A29E; }
+    .net-zero     { font-weight: 400; color: #C4BAB0; }
+
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+    input[type=number] { -moz-appearance: textfield; }
+
+    .cta-input:focus { outline: none; border-color: #C07A38; box-shadow: 0 0 0 3px rgba(192,122,56,0.12); }
+
+    .avatar-ring { box-shadow: 0 0 0 2px #F8F5F0; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .arc-fill, .fade-slide { animation: none; }
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #D4CCC4; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useRef } = React;
+
+    /* ─── Data ─────────────────────────────────────────── */
+
+    const POTLUCK = {
+      name: 'Ski Trip 2026',
+      location: "Val d'Isère, France",
+      dates: 'Jan 13–19',
+      memberCount: 5,
+      potBalance: 960.50,
+      totalExpenses: 913.50,
+      perPersonShare: 182.70,
+      expenseCount: 4,
+    };
+
+    const AVATAR_COLORS = {
+      'anna.init':    { bg: '#D4C5B0', fg: '#5A4A3A' },
+      'philipp.init': { bg: '#B9C0CA', fg: '#3A3F50' },
+      'lisa.init':    { bg: '#BBC8B6', fg: '#3A5038' },
+      'tom.init':     { bg: '#CAB9B0', fg: '#5A3A38' },
+      'maya.init':    { bg: '#C07A38', fg: '#FFFFFF' },
+    };
+
+    const MEMBERS = [
+      { handle: 'anna.init',    name: 'Anna',    initials: 'A', arcPct: 1.000, net:  127.50, contributed: 310.20, share: 182.70 },
+      { handle: 'philipp.init', name: 'Philipp', initials: 'P', arcPct: 1.000, net:   34.00, contributed: 216.70, share: 182.70 },
+      { handle: 'lisa.init',    name: 'Lisa',    initials: 'L', arcPct: 1.000, net:    0.00, contributed: 182.70, share: 182.70 },
+      { handle: 'tom.init',     name: 'Tom',     initials: 'T', arcPct: 0.863, net:  -25.00, contributed: 157.70, share: 182.70 },
+      { handle: 'maya.init',    name: 'Maya',    initials: 'M', arcPct: 0.510, net:  -89.50, contributed:  93.20, share: 182.70, isMe: true },
+    ];
+
+    const EXPENSES = [
+      { id: 1, desc: 'Airbnb — Les Clarines', paidBy: 'anna.init',    amount: 480.00, splitCount: 5, yourShare: 96.00, date: 'Jan 13' },
+      { id: 2, desc: 'Lift tickets, day 1',   paidBy: 'philipp.init', amount: 185.00, splitCount: 5, yourShare: 37.00, date: 'Jan 14' },
+      { id: 3, desc: 'Grocery run',            paidBy: 'tom.init',     amount:  92.50, splitCount: 5, yourShare: 18.50, date: 'Jan 14' },
+      { id: 4, desc: 'Dinner — La Table',      paidBy: 'lisa.init',    amount: 156.00, splitCount: 5, yourShare: 31.20, date: 'Jan 15' },
+    ];
+
+    const ME = MEMBERS.find(m => m.isMe);
+
+    /* ─── Helpers ────────────────────────────────────────── */
+
+    function eur(n, { sign = false } = {}) {
+      const abs = Math.abs(n).toFixed(2);
+      const parts = abs.split('.');
+      const int = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      const formatted = `€${int}.${parts[1]}`;
+      if (n > 0 && sign) return `+${formatted}`;
+      if (n < 0) return `−${formatted}`;
+      return formatted;
+    }
+
+    /* ─── Coverage Arc ───────────────────────────────────── */
+
+    function CoverageArc({ pct, size = 40, delay = 0 }) {
+      const sw   = 2.5;
+      const r    = (size / 2) - sw;
+      const c    = size / 2;
+      const circ = 2 * Math.PI * r;
+      const fill = Math.min(pct, 1) * circ;
+      const complete = pct >= 1;
+
+      return (
+        <svg
+          width={size} height={size}
+          viewBox={`0 0 ${size} ${size}`}
+          style={{ transform: 'rotate(-90deg)', flexShrink: 0 }}
+          aria-hidden="true"
+        >
+          {/* Track */}
+          <circle cx={c} cy={c} r={r} fill="none" stroke="#EDE8E1" strokeWidth={sw} />
+          {/* Fill */}
+          <circle
+            cx={c} cy={c} r={r} fill="none"
+            stroke="#C07A38"
+            strokeWidth={sw}
+            strokeDasharray={`${fill} ${circ}`}
+            strokeLinecap="round"
+            className="arc-fill"
+            style={{ animationDelay: `${delay}ms` }}
+          />
+          {/* Completion cap dot at 12 o'clock for full arcs */}
+          {complete && (
+            <circle cx={c} cy={sw} r={1.5} fill="#C07A38" />
+          )}
+        </svg>
+      );
+    }
+
+    /* ─── Avatar ─────────────────────────────────────────── */
+
+    function Avatar({ handle, initials, size = 32 }) {
+      const col = AVATAR_COLORS[handle] || { bg: '#CCC', fg: '#666' };
+      return (
+        <div
+          className="rounded-full flex items-center justify-center font-medium select-none flex-shrink-0"
+          style={{
+            width: size, height: size,
+            fontSize: size * 0.35,
+            backgroundColor: col.bg,
+            color: col.fg,
+          }}
+        >
+          {initials}
+        </div>
+      );
+    }
+
+    /* ─── Member Row ──────────────────────────────────────── */
+
+    function MemberRow({ member, index }) {
+      const sign  = member.net > 0 ? 'positive' : member.net < 0 ? 'negative' : 'zero';
+      const label = sign === 'positive' ? 'getting back' : sign === 'negative' ? 'still to bring' : 'square';
+
+      return (
+        <div
+          className={`member-row fade-slide${member.isMe ? ' is-me' : ''}`}
+          style={{ animationDelay: `${index * 40}ms` }}
+          role="row"
+          aria-label={`${member.name}: ${eur(member.net, { sign: true })} net`}
+        >
+          {/* Arc */}
+          <CoverageArc pct={member.arcPct} size={40} delay={index * 60} />
+
+          {/* Identity */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+            <Avatar handle={member.handle} initials={member.initials} size={32} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ fontSize: 14, fontWeight: 500, color: '#1C1917', lineHeight: 1.25 }}>
+                  {member.name}
+                </span>
+                {member.isMe && (
+                  <span style={{ fontSize: 11, color: '#A8A29E', fontWeight: 400 }}>you</span>
+                )}
+              </div>
+              <div className="tabular" style={{ fontSize: 12, color: '#A8A29E', marginTop: 1 }}>
+                @{member.handle}
+              </div>
+            </div>
+          </div>
+
+          {/* Brought — hidden on narrow */}
+          <div className="hidden-mobile" style={{ textAlign: 'right', flexShrink: 0, minWidth: 64 }}>
+            <div style={{ fontSize: 11, color: '#C4BAB0', marginBottom: 2 }}>brought</div>
+            <div className="tabular" style={{ fontSize: 13, color: '#A8A29E' }}>
+              {eur(member.contributed)}
+            </div>
+          </div>
+
+          {/* Net position */}
+          <div style={{ textAlign: 'right', flexShrink: 0, minWidth: 80 }}>
+            <div style={{ fontSize: 11, color: '#C4BAB0', marginBottom: 2 }}>{label}</div>
+            <div className={`tabular net-${sign}`} style={{ fontSize: 13 }}>
+              {sign === 'zero'
+                ? <span style={{ color: '#C4BAB0' }}>—</span>
+                : eur(member.net, { sign: sign === 'positive' })
+              }
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── Expense Item ───────────────────────────────────── */
+
+    function ExpenseItem({ expense, index }) {
+      const paidByMember = MEMBERS.find(m => m.handle === expense.paidBy);
+      const isMe = expense.paidBy === ME.handle;
+
+      return (
+        <div
+          className="fade-slide"
+          style={{
+            display: 'flex', alignItems: 'flex-start', gap: 12,
+            padding: '11px 0',
+            borderBottom: '1px solid #EDE8E1',
+            animationDelay: `${200 + index * 40}ms`,
+          }}
+        >
+          <Avatar
+            handle={expense.paidBy}
+            initials={paidByMember?.initials || '?'}
+            size={28}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 480, color: '#1C1917', lineHeight: 1.3 }}>
+              {expense.desc}
+            </div>
+            <div style={{ fontSize: 12, color: '#A8A29E', marginTop: 2 }}>
+              {isMe ? 'You paid' : `${paidByMember?.name} paid`} · split {expense.splitCount} ways · {expense.date}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right', flexShrink: 0 }}>
+            <div className="tabular" style={{ fontSize: 14, fontWeight: 500, color: '#1C1917' }}>
+              {eur(expense.amount)}
+            </div>
+            <div className="tabular" style={{ fontSize: 12, color: '#A8A29E', marginTop: 2 }}>
+              −{eur(expense.yourShare)} your share
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    /* ─── Divider ────────────────────────────────────────── */
+
+    const Divider = () => (
+      <div style={{ height: 1, background: '#EDE8E1', margin: '0 0 28px' }} />
+    );
+
+    /* ─── Section Label ──────────────────────────────────── */
+
+    const SectionLabel = ({ children, action }) => (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+        <span style={{ fontSize: 12, color: '#A8A29E', fontWeight: 450, letterSpacing: '0.01em' }}>
+          {children}
+        </span>
+        {action && (
+          <button
+            style={{ fontSize: 12, color: '#A8A29E', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+            onMouseEnter={e => e.target.style.color = '#78716C'}
+            onMouseLeave={e => e.target.style.color = '#A8A29E'}
+          >
+            {action}
+          </button>
+        )}
+      </div>
+    );
+
+    /* ─── App ─────────────────────────────────────────────── */
+
+    function App() {
+      const [amount, setAmount]   = useState('89.50');
+      const [oneTap]              = useState(true);
+      const [contributed, setContributed] = useState(false);
+      const inputRef = useRef(null);
+
+      const handleBring = () => {
+        if (!amount || parseFloat(amount) <= 0) return;
+        setContributed(true);
+      };
+
+      const amountVal = parseFloat(amount) || 0;
+      const deficit   = Math.abs(ME.net);
+
+      return (
+        <div style={{ minHeight: '100vh', backgroundColor: '#F8F5F0' }}>
+
+          {/* ── Nav ── */}
+          <nav
+            style={{
+              position: 'sticky', top: 0, zIndex: 20,
+              backgroundColor: '#F8F5F0',
+              borderBottom: '1px solid #EDE8E1',
+            }}
+            aria-label="Potluck navigation"
+          >
+            <div style={{ maxWidth: 1080, margin: '0 auto', padding: '0 32px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <button
+                style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#A8A29E', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                onMouseEnter={e => e.currentTarget.style.color = '#1C1917'}
+                onMouseLeave={e => e.currentTarget.style.color = '#A8A29E'}
+                aria-label="Back to dashboard"
+              >
+                <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+                  <path d="M9.5 12L5 7.5 9.5 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Dashboard
+              </button>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                {oneTap && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 20, backgroundColor: '#FDF3E8', fontSize: 11.5, fontWeight: 500, color: '#C07A38' }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#C07A38', opacity: 0.8 }} />
+                    One-tap · 18h
+                  </div>
+                )}
+                <button
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#A8A29E', padding: 4, display: 'flex', alignItems: 'center' }}
+                  onMouseEnter={e => e.currentTarget.style.color = '#1C1917'}
+                  onMouseLeave={e => e.currentTarget.style.color = '#A8A29E'}
+                  aria-label="Potluck settings"
+                >
+                  <svg width="17" height="17" viewBox="0 0 17 17" fill="none" aria-hidden="true">
+                    <circle cx="8.5" cy="8.5" r="2.5" stroke="currentColor" strokeWidth="1.3"/>
+                    <path d="M8.5 1.5v2M8.5 13.5v2M1.5 8.5h2M13.5 8.5h2M3.55 3.55l1.42 1.42M12.03 12.03l1.42 1.42M3.55 13.45l1.42-1.42M12.03 4.97l1.42-1.42" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </nav>
+
+          {/* ── Main ── */}
+          <main style={{ maxWidth: 1080, margin: '0 auto', padding: '40px 32px 64px', display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 48, alignItems: 'start' }}>
+
+            {/* ═══ LEFT PANEL ═══ */}
+            <div>
+
+              {/* Header — resting */}
+              <header style={{ marginBottom: 36 }}>
+                <h1 style={{ fontSize: 30, fontWeight: 640, letterSpacing: '-0.02em', color: '#1C1917', margin: '0 0 4px', lineHeight: 1.1 }}>
+                  Ski Trip 2026
+                </h1>
+                <p style={{ fontSize: 14, color: '#A8A29E', margin: 0, fontWeight: 400 }}>
+                  Val d'Isère, France &nbsp;·&nbsp; Jan 13–19, 2026
+                </p>
+
+                {/* Members strip */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 18, marginBottom: 24 }}>
+                  <div style={{ display: 'flex' }}>
+                    {MEMBERS.map((m, i) => (
+                      <div key={m.handle} style={{ marginLeft: i === 0 ? 0 : -8, boxShadow: '0 0 0 2px #F8F5F0', borderRadius: '50%' }}>
+                        <Avatar handle={m.handle} initials={m.initials} size={30} />
+                      </div>
+                    ))}
+                  </div>
+                  <span style={{ fontSize: 13, color: '#A8A29E' }}>5 members</span>
+                </div>
+
+                {/* Pot stats */}
+                <div style={{ display: 'flex', gap: 0 }}>
+                  {[
+                    { label: 'Pot balance',    value: POTLUCK.potBalance },
+                    { label: 'The spread',      value: POTLUCK.totalExpenses },
+                    { label: 'Per person',      value: POTLUCK.perPersonShare },
+                  ].map((stat, i) => (
+                    <React.Fragment key={stat.label}>
+                      {i > 0 && <div style={{ width: 1, background: '#EDE8E1', margin: '0 24px' }} />}
+                      <div>
+                        <div style={{ fontSize: 11, color: '#A8A29E', fontWeight: 450, marginBottom: 4, letterSpacing: '0.02em' }}>
+                          {stat.label}
+                        </div>
+                        <div className="tabular" style={{ fontSize: 22, fontWeight: 620, color: '#1C1917', letterSpacing: '-0.02em' }}>
+                          {eur(stat.value)}
+                        </div>
+                      </div>
+                    </React.Fragment>
+                  ))}
+                </div>
+              </header>
+
+              <Divider />
+
+              {/* Balance board — resting */}
+              <section aria-labelledby="balance-heading" style={{ marginBottom: 36 }}>
+                <SectionLabel>Balance board</SectionLabel>
+                <div role="table" aria-label="Member balance states">
+                  {MEMBERS.map((m, i) => (
+                    <MemberRow key={m.handle} member={m} index={i} />
+                  ))}
+                </div>
+              </section>
+
+              <Divider />
+
+              {/* Expense feed */}
+              <section aria-labelledby="expenses-heading">
+                <SectionLabel action="Export CSV">
+                  The spread &nbsp;·&nbsp; {POTLUCK.expenseCount} expenses
+                </SectionLabel>
+                <div>
+                  {EXPENSES.map((e, i) => (
+                    <ExpenseItem key={e.id} expense={e} index={i} />
+                  ))}
+                </div>
+                <button
+                  style={{
+                    marginTop: 16, width: '100%', padding: '9px 0',
+                    fontSize: 13, color: '#A8A29E', fontWeight: 450,
+                    background: 'none', border: '1px dashed #DDD6CE',
+                    borderRadius: 6, cursor: 'pointer', transition: 'border-color 0.15s, color 0.15s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = '#C07A38'; e.currentTarget.style.color = '#C07A38'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#DDD6CE'; e.currentTarget.style.color = '#A8A29E'; }}
+                  aria-label="Add expense to the spread"
+                >
+                  + Add to the spread
+                </button>
+              </section>
+
+            </div>
+
+            {/* ═══ RIGHT PANEL ═══ */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, position: 'sticky', top: 68 }}>
+
+              {/* ── Bring your share — TRANSACTIONAL ── */}
+              <div
+                style={{
+                  backgroundColor: '#FFFFFF',
+                  border: '1px solid #E2D9CE',
+                  borderRadius: 10,
+                  overflow: 'hidden',
+                }}
+                aria-label="Bring your share — contribution panel"
+              >
+                {/* Hearth accent bar — signals transactional register */}
+                <div style={{ height: 3, backgroundColor: '#C07A38' }} />
+
+                <div style={{ padding: '20px 20px 22px' }}>
+                  <div style={{ fontSize: 10.5, fontWeight: 620, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#78716C', marginBottom: 18 }}>
+                    Bring your share
+                  </div>
+
+                  {/* Precise breakdown — tabular, deliberate */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                    {[
+                      { label: "Your share of expenses", value: ME.share },
+                      { label: "You've brought",         value: ME.contributed },
+                    ].map(row => (
+                      <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '7px 0', borderBottom: '1px solid #F0EBE3' }}>
+                        <span style={{ fontSize: 13, color: '#78716C' }}>{row.label}</span>
+                        <span className="tabular" style={{ fontSize: 13, fontWeight: 500, color: '#1C1917' }}>
+                          {eur(row.value)}
+                        </span>
+                      </div>
+                    ))}
+
+                    {/* Gap row — prominent */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', padding: '10px 0 14px' }}>
+                      <span style={{ fontSize: 13, fontWeight: 520, color: '#1C1917' }}>Remaining</span>
+                      <span className="tabular" style={{ fontSize: 18, fontWeight: 640, color: '#C07A38', letterSpacing: '-0.02em' }}>
+                        {eur(deficit)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Amount input */}
+                  {!contributed ? (
+                    <>
+                      <label htmlFor="bring-amount" style={{ fontSize: 11.5, color: '#A8A29E', display: 'block', marginBottom: 6 }}>
+                        Amount
+                      </label>
+                      <div
+                        style={{ display: 'flex', alignItems: 'center', border: '1px solid #DDD6CE', borderRadius: 6, overflow: 'hidden', marginBottom: 10, transition: 'border-color 0.15s' }}
+                        onClick={() => inputRef.current?.focus()}
+                      >
+                        <span className="tabular" style={{ padding: '0 6px 0 12px', fontSize: 14, color: '#A8A29E', userSelect: 'none' }}>€</span>
+                        <input
+                          ref={inputRef}
+                          id="bring-amount"
+                          type="number"
+                          value={amount}
+                          min="0.01"
+                          step="0.01"
+                          onChange={e => setAmount(e.target.value)}
+                          className="tabular cta-input"
+                          style={{ flex: 1, padding: '10px 12px 10px 0', fontSize: 15, fontWeight: 550, color: '#1C1917', background: 'transparent', border: 'none', width: '100%' }}
+                          aria-label="Amount to bring to the pot"
+                        />
+                      </div>
+
+                      <button
+                        onClick={handleBring}
+                        disabled={amountVal <= 0}
+                        style={{
+                          width: '100%', padding: '11px 0',
+                          backgroundColor: amountVal > 0 ? '#C07A38' : '#E2D9CE',
+                          color: amountVal > 0 ? '#FFFFFF' : '#A8A29E',
+                          border: 'none', borderRadius: 6,
+                          fontSize: 14, fontWeight: 580,
+                          cursor: amountVal > 0 ? 'pointer' : 'default',
+                          transition: 'background-color 0.15s, opacity 0.15s',
+                          letterSpacing: '-0.01em',
+                        }}
+                        onMouseEnter={e => { if (amountVal > 0) e.currentTarget.style.opacity = '0.88'; }}
+                        onMouseLeave={e => e.currentTarget.style.opacity = '1'}
+                        aria-label={`Bring ${eur(amountVal)} to the pot`}
+                      >
+                        Bring {eur(amountVal)} to the pot
+                      </button>
+
+                      <p style={{ textAlign: 'center', fontSize: 11.5, color: '#C4BAB0', margin: '10px 0 0' }}>
+                        Settles instantly · visible to all members
+                      </p>
+                    </>
+                  ) : (
+                    /* Confirmation state */
+                    <div className="fade-slide" style={{ textAlign: 'center', padding: '8px 0 4px' }}>
+                      <div style={{ width: 36, height: 36, borderRadius: '50%', backgroundColor: '#FDF3E8', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 10px' }}>
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                          <path d="M3 8l3.5 3.5L13 5" stroke="#C07A38" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 520, color: '#1C1917', marginBottom: 3 }}>
+                        {eur(amountVal)} on its way
+                      </div>
+                      <div style={{ fontSize: 12, color: '#A8A29E' }}>
+                        The pot will update in a moment
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ── Closing note ── */}
+              <div
+                style={{
+                  backgroundColor: '#FAF8F5',
+                  border: '1px solid #EDE8E1',
+                  borderRadius: 10,
+                  padding: '14px 16px',
+                }}
+              >
+                <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                  <div style={{ flexShrink: 0, marginTop: 1 }}>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                      <circle cx="7" cy="7" r="5.5" stroke="#C4BAB0" strokeWidth="1.2"/>
+                      <path d="M7 4v3.5" stroke="#C4BAB0" strokeWidth="1.2" strokeLinecap="round"/>
+                      <circle cx="7" cy="10" r="0.6" fill="#C4BAB0"/>
+                    </svg>
+                  </div>
+                  <p style={{ margin: 0, fontSize: 12.5, color: '#78716C', lineHeight: 1.55 }}>
+                    <span style={{ fontWeight: 520, color: '#4A3D35' }}>Clear the table</span> is available once everyone's covered. Tom and you still need to bring more.
+                  </p>
+                </div>
+              </div>
+
+              {/* ── End date note ── */}
+              <div style={{ textAlign: 'center', paddingTop: 4 }}>
+                <span style={{ fontSize: 11.5, color: '#C4BAB0' }}>
+                  Trip ends Jan 19 · 4 days left
+                </span>
+              </div>
+
+            </div>
+          </main>
+
+          {/* ── Mobile note (visible only on small screens) ── */}
+          <style>{`
+            @media (max-width: 720px) {
+              main { grid-template-columns: 1fr !important; gap: 32px !important; padding: 24px 20px 80px !important; }
+              .hidden-mobile { display: none !important; }
+            }
+          `}</style>
+
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>

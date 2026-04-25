@@ -1,8 +1,8 @@
 "use client"
 
-import { UsernameBadge } from "@/components/identity/UsernameBadge"
+import { Arc } from "@/components/ui/Arc"
+import { Avatar } from "@/components/ui/Avatar"
 import { fromMicro } from "@/lib/initia/chain"
-import { TrendingUp, TrendingDown, Minus } from "lucide-react"
 
 interface Balance {
   address: string
@@ -16,68 +16,119 @@ interface BalanceBoardProps {
   balances: Balance[]
   denom: string
   poolStatus: "open" | "closed"
+  currentUserAddress?: string
 }
 
-export function BalanceBoard({ balances, denom, poolStatus }: BalanceBoardProps) {
-  const displayDenom = denom.replace("u", "").toUpperCase()
-
+export function BalanceBoard({ balances, denom, poolStatus: _poolStatus, currentUserAddress }: BalanceBoardProps) {
+  // Compute total expense share for arc pct denominator (use expenseShare per member)
   return (
-    <div className="bg-white rounded-xl border border-zinc-200">
-      <div className="p-4 border-b border-zinc-100">
-        <h2 className="font-semibold text-zinc-900">Who owes what</h2>
-        <p className="text-xs text-zinc-400 mt-0.5">Live balance board</p>
+    <section aria-labelledby="balance-heading">
+      {/* Section label */}
+      <div style={{ fontSize: 12, color: "#A8A29E", fontWeight: 450, letterSpacing: "0.01em", marginBottom: 14 }}>
+        Balance board
       </div>
-      <div className="divide-y divide-zinc-100">
-        {balances.length === 0 && (
-          <div className="p-4 text-center text-sm text-zinc-400">
-            No contributions yet
-          </div>
-        )}
-        {balances.map((b) => {
+
+      <div role="table" aria-label="Member balance states">
+        {balances.map((b, index) => {
           const net = BigInt(b.netBalance)
           const isPositive = net > 0n
           const isNegative = net < 0n
           const isZero = net === 0n
-          const displayNet = isNegative ? (-net).toString() : net.toString()
+
+          // Arc pct: contributed / expenseShare, clamp 0-1
+          let arcPct = 0
+          const expenseShareBig = BigInt(b.expenseShare)
+          const contributedBig = BigInt(b.contributed)
+          if (expenseShareBig > 0n) {
+            // Use floating point via Number for pct
+            arcPct = Math.min(1, Math.max(0, Number(contributedBig) / Number(expenseShareBig)))
+          }
+
+          const isMe = currentUserAddress ? b.address === currentUserAddress : false
+          const handle = b.address.slice(-8)
+          const netAbs = isNegative ? -net : net
+
+          let netLabel = "square"
+          let netClass = "net-zero"
+          if (isPositive) { netLabel = "getting back"; netClass = "net-positive" }
+          if (isNegative) { netLabel = "still to bring"; netClass = "net-negative" }
+
+          const displayName = b.username || undefined
+          const subtitle = b.username ? `@${b.username}` : `@${b.address.slice(0, 8)}`
 
           return (
-            <div key={b.address} className="p-4">
-              <div className="flex items-center justify-between mb-2">
-                <UsernameBadge address={b.address} username={b.username} size="sm" />
-                <div className={`flex items-center gap-1 font-semibold text-sm ${
-                  isPositive ? "text-emerald-600" : isNegative ? "text-red-600" : "text-zinc-500"
-                }`}>
-                  {isPositive && <TrendingUp className="h-3.5 w-3.5" />}
-                  {isNegative && <TrendingDown className="h-3.5 w-3.5" />}
-                  {isZero && <Minus className="h-3.5 w-3.5" />}
-                  {isNegative ? "-" : isPositive ? "+" : ""}
-                  {fromMicro(displayNet)} {displayDenom}
+            <div
+              key={b.address}
+              className={`fade-slide${isMe ? " is-me" : ""}`}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                padding: isMe ? "13px 4px" : "13px 0",
+                borderBottom: index === balances.length - 1 ? "none" : "1px solid #EDE8E1",
+                animationDelay: `${index * 40}ms`,
+                ...(isMe ? {
+                  margin: "0 -4px",
+                  background: "#FAF8F5",
+                  borderRadius: 6,
+                  borderBottomColor: "transparent",
+                } : {}),
+              }}
+              role="row"
+              aria-label={`${displayName || handle}: ${fromMicro(netAbs)} INIT net`}
+            >
+              {/* Arc */}
+              <Arc pct={arcPct} size={40} delay={index * 60} />
+
+              {/* Identity block */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, minWidth: 0 }}>
+                <Avatar handle={handle} displayName={displayName} size={32} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ fontSize: 14, fontWeight: 500, color: "#1C1917", lineHeight: 1.25 }}>
+                      {displayName || b.address.slice(0, 8)}
+                    </span>
+                    {isMe && (
+                      <span style={{ fontSize: 11, color: "#A8A29E", fontWeight: 400 }}>you</span>
+                    )}
+                  </div>
+                  <div className="tabular" style={{ fontSize: 12, color: "#A8A29E", marginTop: 1 }}>
+                    {subtitle}
+                  </div>
                 </div>
               </div>
-              <div className="text-xs text-zinc-400 space-y-0.5">
-                <div className="flex justify-between">
-                  <span>Brought</span>
-                  <span className="font-mono">{fromMicro(b.contributed)} {displayDenom}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Share of expenses</span>
-                  <span className="font-mono">-{fromMicro(b.expenseShare)} {displayDenom}</span>
+
+              {/* Brought — hidden on mobile */}
+              <div className="desktop-hidden" style={{ textAlign: "right", flexShrink: 0, minWidth: 64 }}>
+                <div style={{ fontSize: 11, color: "#C4BAB0", marginBottom: 2 }}>brought</div>
+                <div className="tabular" style={{ fontSize: 13, color: "#A8A29E" }}>
+                  {fromMicro(b.contributed)} INIT
                 </div>
               </div>
-              {isNegative && poolStatus === "open" && (
-                <div className="mt-2 text-xs text-red-600 bg-red-50 px-2 py-1 rounded">
-                  Needs to bring {fromMicro(displayNet)} more before the table can be cleared
+
+              {/* Net position */}
+              <div style={{ textAlign: "right", flexShrink: 0, minWidth: 80 }}>
+                <div style={{ fontSize: 11, color: "#C4BAB0", marginBottom: 2 }}>{netLabel}</div>
+                <div className={`tabular ${netClass}`} style={{ fontSize: 13 }}>
+                  {isZero ? (
+                    <span style={{ color: "#C4BAB0" }}>—</span>
+                  ) : isPositive ? (
+                    <span style={{ fontWeight: 510, color: "#1C1917" }}>+{fromMicro(netAbs)} INIT</span>
+                  ) : (
+                    <span style={{ fontWeight: 400, color: "#A8A29E" }}>−{fromMicro(netAbs)} INIT</span>
+                  )}
                 </div>
-              )}
-              {isPositive && poolStatus === "closed" && (
-                <div className="mt-2 text-xs text-emerald-600 bg-emerald-50 px-2 py-1 rounded">
-                  Received {fromMicro(displayNet)} {displayDenom} at settlement
-                </div>
-              )}
+              </div>
             </div>
           )
         })}
+
+        {balances.length === 0 && (
+          <div style={{ padding: "24px 0", textAlign: "center", fontSize: 13, color: "#C4BAB0" }}>
+            No contributions yet
+          </div>
+        )}
       </div>
-    </div>
+    </section>
   )
 }

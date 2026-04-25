@@ -3,14 +3,13 @@
 import { useInterwovenKit } from "@initia/interwovenkit-react"
 import { useQuery } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { UsernameBadge } from "@/components/identity/UsernameBadge"
-import { ChefHat, Plus, ChevronRight, Clock } from "lucide-react"
 import Link from "next/link"
-import { DbPool } from "@/lib/potluck/types"
 import { formatDistanceToNow } from "date-fns"
+import { AppNav } from "@/components/chrome/AppNav"
+import { CTABtn } from "@/components/ui/CTABtn"
+import { HEARTH } from "@/lib/design/tokens"
+import { DbPool } from "@/lib/potluck/types"
+import { useState } from "react"
 
 function useMyPotlucks(address: string | undefined) {
   return useQuery({
@@ -31,108 +30,156 @@ export default function DashboardPage() {
   const router = useRouter()
   const { data: pools, isLoading } = useMyPotlucks(address)
 
-  // Don't auto-pop the connect modal — let users see the page and click connect themselves
+  const displayName = username || (address ? address.slice(0, 12) + "…" : null)
 
   return (
-    <div className="min-h-screen bg-zinc-50">
-      {/* Nav */}
-      <nav className="bg-white border-b border-zinc-200 px-6 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-lg bg-emerald-600 flex items-center justify-center">
-              <ChefHat className="h-4 w-4 text-white" />
-            </div>
-            <span className="font-bold text-zinc-900">Potluck</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            {address && (
-              <UsernameBadge address={address} username={username} size="sm" />
-            )}
-          </div>
-        </div>
-      </nav>
+    <div
+      style={{
+        minHeight: "100vh",
+        backgroundColor: "#F8F5F0",
+        fontFamily: "inherit",
+      }}
+    >
+      <AppNav
+        backLabel=""
+        right={
+          <CTABtn size="sm" onClick={() => router.push("/p/new")}>
+            Set the table →
+          </CTABtn>
+        }
+      />
 
-      <main className="max-w-4xl mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+      <main
+        style={{
+          maxWidth: 1080,
+          margin: "0 auto",
+          padding: "40px 32px",
+        }}
+      >
+        {/* Header row */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "flex-start",
+            marginBottom: 32,
+          }}
+        >
           <div>
-            <h1 className="text-2xl font-bold text-zinc-900">Your potlucks</h1>
-            <p className="text-zinc-500 mt-1">
-              {address ? `Signed in as ${username || address.slice(0, 12) + "…"}` : "Connect to see your potlucks"}
+            <h1
+              style={{
+                fontSize: 21,
+                fontWeight: 620,
+                letterSpacing: "-0.02em",
+                color: "#1C1917",
+                marginBottom: 3,
+                marginTop: 0,
+              }}
+            >
+              Your potlucks
+            </h1>
+            <p style={{ fontSize: 13, color: "#A8A29E", margin: 0 }}>
+              {displayName ? `@${displayName}` : ""}
             </p>
           </div>
-          <Button onClick={() => router.push("/p/new")}>
-            <Plus className="h-4 w-4" />
-            Set the table
-          </Button>
         </div>
 
-        {/* Pool list */}
+        {/* Not connected */}
         {!address && (
-          <div className="text-center py-16">
-            <ChefHat className="h-12 w-12 text-zinc-300 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-zinc-700 mb-2">Connect your account</h2>
-            <p className="text-zinc-500 mb-6">Sign in with Google to see your potlucks</p>
-            <Button onClick={openConnect}>Connect account</Button>
+          <div
+            style={{
+              border: "1.5px dashed #DDD6CE",
+              borderRadius: 10,
+              padding: "72px 48px",
+              textAlign: "center",
+            }}
+          >
+            <p
+              style={{
+                fontSize: 16,
+                fontWeight: 490,
+                color: "#78716C",
+                marginBottom: 8,
+                marginTop: 0,
+              }}
+            >
+              Sign in to see your potlucks
+            </p>
+            <p
+              style={{
+                fontSize: 14,
+                color: "#A8A29E",
+                marginBottom: 30,
+                marginTop: 0,
+                lineHeight: 1.65,
+                maxWidth: 320,
+                margin: "0 auto 30px",
+              }}
+            >
+              Start one for your next trip, dinner, or anything your group shares the bill for.
+            </p>
+            <CTABtn onClick={openConnect}>Sign in</CTABtn>
           </div>
         )}
 
+        {/* Loading */}
         {address && isLoading && (
-          <div className="space-y-3">
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-24 bg-zinc-100 rounded-xl animate-pulse" />
+              <div
+                key={i}
+                style={{
+                  backgroundColor: "#F0EBE3",
+                  borderRadius: 10,
+                  height: 72,
+                  animation: "pulse 1.5s ease-in-out infinite",
+                }}
+              />
             ))}
           </div>
         )}
 
+        {/* Empty state */}
         {address && !isLoading && (!pools || pools.length === 0) && (
-          <div className="text-center py-16 bg-white rounded-xl border border-zinc-200">
-            <ChefHat className="h-12 w-12 text-zinc-300 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-zinc-700 mb-2">
-              No potlucks yet — set your first table!
-            </h2>
-            <p className="text-zinc-500 mb-6 max-w-sm mx-auto">
-              Create a potluck and invite your friends. Everyone brings their share; at the end, everyone takes home what&apos;s theirs.
+          <div
+            style={{
+              border: "1.5px dashed #DDD6CE",
+              borderRadius: 10,
+              padding: "72px 48px",
+              textAlign: "center",
+            }}
+          >
+            <p
+              style={{
+                fontSize: 16,
+                fontWeight: 490,
+                color: "#78716C",
+                marginBottom: 8,
+                marginTop: 0,
+              }}
+            >
+              No potlucks yet.
             </p>
-            <Button onClick={() => router.push("/p/new")}>
-              <Plus className="h-4 w-4" />
-              Set the table
-            </Button>
+            <p
+              style={{
+                fontSize: 14,
+                color: "#A8A29E",
+                lineHeight: 1.65,
+                maxWidth: 320,
+                margin: "0 auto 30px",
+              }}
+            >
+              Start one for your next trip, dinner, or anything your group shares the bill for.
+            </p>
+            <CTABtn onClick={() => router.push("/p/new")}>Set the table →</CTABtn>
           </div>
         )}
 
+        {/* Pool cards */}
         {pools && pools.length > 0 && (
-          <div className="space-y-3">
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {pools.map((pool) => (
-              <Link key={pool.id} href={`/p/${pool.id}`}>
-                <Card className="hover:shadow-md transition-shadow cursor-pointer">
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-zinc-900 truncate">{pool.name}</h3>
-                          <Badge variant={pool.status === "open" ? "default" : "secondary"}>
-                            {pool.status === "open" ? "Open" : "Cleared"}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-3 text-sm text-zinc-500">
-                          <span className="flex items-center gap-1">
-                            <Clock className="h-3 w-3" />
-                            {formatDistanceToNow(new Date(pool.created_at), { addSuffix: true })}
-                          </span>
-                          <span>{(pool.members as Array<{ address: string }>).length} guests</span>
-                          {pool.description && (
-                            <span className="truncate max-w-xs">{pool.description}</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right ml-4">
-                        <ChevronRight className="h-4 w-4 text-zinc-400" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
+              <PoolCard key={pool.id} pool={pool} />
             ))}
           </div>
         )}
@@ -140,3 +187,144 @@ export default function DashboardPage() {
     </div>
   )
 }
+
+function PoolCard({ pool }: { pool: DbPool }) {
+  const memberCount = (pool.members as Array<{ address: string }>).length
+  const timeAgo = formatDistanceToNow(new Date(pool.created_at), { addSuffix: true })
+  const desc = pool.description
+    ? pool.description.length > 40
+      ? pool.description.slice(0, 40) + "…"
+      : pool.description
+    : null
+
+  const isOpen = pool.status === "open"
+
+  return (
+    <Link href={`/p/${pool.id}`} style={{ textDecoration: "none" }}>
+      <PoolCardInner pool={pool} memberCount={memberCount} timeAgo={timeAgo} desc={desc} isOpen={isOpen} />
+    </Link>
+  )
+}
+
+function PoolCardInner({
+  pool,
+  memberCount,
+  timeAgo,
+  desc,
+  isOpen,
+}: {
+  pool: DbPool
+  memberCount: number
+  timeAgo: string
+  desc: string | null
+  isOpen: boolean
+}) {
+  const [hovered, setHovered] = useState(false)
+
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{
+        backgroundColor: "#FFFFFF",
+        border: `1px solid ${hovered ? HEARTH : "#E2D9CE"}`,
+        borderRadius: 10,
+        padding: "16px 20px",
+        cursor: "pointer",
+        transition: "border-color 0.15s",
+        display: "flex",
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+      }}
+    >
+      {/* Left */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            marginBottom: 4,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 15,
+              fontWeight: 540,
+              color: "#1C1917",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}
+          >
+            {pool.name}
+          </span>
+          {isOpen ? (
+            <span
+              style={{
+                fontSize: 11,
+                color: HEARTH,
+                backgroundColor: "#FDF3E8",
+                padding: "2px 8px",
+                borderRadius: 20,
+                flexShrink: 0,
+              }}
+            >
+              Open
+            </span>
+          ) : (
+            <span
+              style={{
+                fontSize: 11,
+                color: "#A8A29E",
+                backgroundColor: "#F0EBE3",
+                padding: "2px 8px",
+                borderRadius: 20,
+                flexShrink: 0,
+              }}
+            >
+              Cleared
+            </span>
+          )}
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            gap: 12,
+            fontSize: 12.5,
+            color: "#A8A29E",
+          }}
+        >
+          <span>{memberCount} members</span>
+          <span>{timeAgo}</span>
+          {desc && (
+            <span
+              style={{
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {desc}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Right: chevron */}
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+        <path
+          d="M5.5 3L10 7.5 5.5 12"
+          stroke="#C4BAB0"
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </div>
+  )
+}
+

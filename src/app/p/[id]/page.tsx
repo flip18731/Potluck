@@ -2,23 +2,19 @@
 
 import { useInterwovenKit } from "@initia/interwovenkit-react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { use } from "react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { UsernameBadge } from "@/components/identity/UsernameBadge"
-import { AddressDetails } from "@/components/identity/AddressDetails"
-import { ContributionModal } from "@/components/potluck/ContributionModal"
-import { AddExpenseModal } from "@/components/potluck/AddExpenseModal"
-import { ExpenseFeed } from "@/components/potluck/ExpenseFeed"
+import { use, useState, useRef, Fragment, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { AppNav, OneTapPill } from "@/components/chrome/AppNav"
+import { Avatar, AvatarStack } from "@/components/ui/Avatar"
+import { CTABtn } from "@/components/ui/CTABtn"
 import { BalanceBoard } from "@/components/potluck/BalanceBoard"
+import { ExpenseFeed } from "@/components/potluck/ExpenseFeed"
+import { AddExpenseModal } from "@/components/potluck/AddExpenseModal"
 import { AutoSignPrompt } from "@/components/potluck/AutoSignPrompt"
-import { SettlementFlow } from "@/components/potluck/SettlementFlow"
-import { fromMicro, INITIA_TESTNET } from "@/lib/initia/chain"
-import { ChefHat, ArrowLeft, ExternalLink, RefreshCw, Copy, CheckCircle2 } from "lucide-react"
-import Link from "next/link"
-import { useState } from "react"
+import { fromMicro, toMicro, INITIA_TESTNET } from "@/lib/initia/chain"
+import { isAutoSignEnabled, autoSignExpiresIn, formatExpiry } from "@/lib/initia/autosign"
 import { toast } from "sonner"
+import { HEARTH } from "@/lib/design/tokens"
 
 interface PoolData {
   pool: {
@@ -63,18 +59,26 @@ interface PoolData {
 
 export default function PotluckDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
-  const { address, username } = useInterwovenKit()
+  const { address, username, requestTxBlock } = useInterwovenKit()
+  const router = useRouter()
   const queryClient = useQueryClient()
-  const [copied, setCopied] = useState(false)
 
-  const copyInviteLink = () => {
-    navigator.clipboard.writeText(window.location.href)
-    setCopied(true)
-    toast.success("Invite link copied!")
-    setTimeout(() => setCopied(false), 2000)
-  }
+  const [amount, setAmount] = useState("")
+  const [contributing, setContributing] = useState(false)
+  const [contributed, setContributed] = useState(false)
+  const [inputFocused, setInputFocused] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  const { data, isLoading, refetch } = useQuery<PoolData>({
+  const [autoSignOn, setAutoSignOn] = useState(() => {
+    if (typeof window === "undefined") return false
+    return isAutoSignEnabled(id)
+  })
+  const [autoSignExpiry, setAutoSignExpiry] = useState(() => {
+    if (typeof window === "undefined") return 0
+    return autoSignExpiresIn(id)
+  })
+
+  const { data, isLoading } = useQuery<PoolData>({
     queryKey: ["pool", id],
     queryFn: async () => {
       const res = await fetch(`/api/pools/${id}`)
@@ -84,204 +88,628 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
     refetchInterval: 5000,
   })
 
+  useEffect(() => {
+    setAutoSignOn(isAutoSignEnabled(id))
+    setAutoSignExpiry(autoSignExpiresIn(id))
+  }, [data, id])
+
   const pool = data?.pool
   const isMember = pool?.members.some((m) => m.address === address)
   const isCreator = pool?.creator_address === address
 
-  // Total contributed (sum of all contributions)
-  const totalContributed = data?.contributions.reduce(
-    (sum, c) => sum + BigInt(c.amount),
-    0n
-  ) ?? 0n
+  const totalContributed = data?.contributions.reduce((sum, c) => sum + BigInt(c.amount), 0n) ?? 0n
+  const totalExpenses = data?.expenses.reduce((sum, e) => sum + BigInt(e.amount), 0n) ?? 0n
+  const memberCount = pool?.members.length ?? 0
+  const perPerson = memberCount > 0 && totalExpenses > 0n ? totalExpenses / BigInt(memberCount) : 0n
+
+  const myBalance = data?.balances.find((b) => b.address === address)
+  const myShare = myBalance ? BigInt(myBalance.expenseShare) : 0n
+  const myContributed = myBalance ? BigInt(myBalance.contributed) : 0n
+  const myRemaining = myShare > myContributed ? myShare - myContributed : 0n
+
+  const amountVal = parseFloat(amount) || 0
+  const treasuryAddress = process.env.NEXT_PUBLIC_TREASURY_ADDRESS
+
+  const handleContribute = async () => {
+    if (!address) { toast.error("Connect your account first"); return }
+    if (amountVal <= 0) { toast.error("Enter a valid amount"); return }
+    if (!treasuryAddress) { toast.error("Treasury not configured"); return }
+
+    setContributing(true)
+    try {
+      const amountMicro = toMicro(amount).toString()
+      const { transactionHash } = await requestTxBlock({
+        messages: [
+          {
+            typeUrl: "/cosmos.bank.v1beta1.MsgSend",
+            value: {
+              fromAddress: address,
+              toAddress: treasuryAddress,
+              amount: [{ denom: pool?.denom || "uinit", amount: amountMicro }],
+            },
+          },
+        ],
+      })
+
+      await fetch(`/api/pools/${id}/contribute`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          memberAddress: address,
+          memberUsername: username || null,
+          amount: amountMicro,
+          txHash: transactionHash,
+        }),
+      })
+
+      setContributed(true)
+      queryClient.invalidateQueries({ queryKey: ["pool", id] })
+      toast.success(`Brought ${amount} INIT to the table!`, {
+        action: {
+          label: "View",
+          onClick: () => window.open(`${INITIA_TESTNET.explorerUrl}/txs/${transactionHash}`, "_blank"),
+        },
+      })
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Transaction failed")
+    } finally {
+      setContributing(false)
+    }
+  }
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
-        <div className="text-zinc-500">Loading your potluck…</div>
+      <div style={{ minHeight: "100vh", backgroundColor: "#F8F5F0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ fontSize: 14, color: "#C4BAB0" }}>Loading your potluck…</div>
       </div>
     )
   }
 
   if (!pool) {
     return (
-      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-zinc-500 mb-4">Potluck not found</p>
-          <Link href="/dashboard"><Button variant="outline">Back to dashboard</Button></Link>
+      <div style={{ minHeight: "100vh", backgroundColor: "#F8F5F0", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <div style={{ textAlign: "center" }}>
+          <p style={{ fontSize: 14, color: "#A8A29E", marginBottom: 16 }}>Potluck not found</p>
+          <CTABtn variant="ghost" onClick={() => router.push("/dashboard")}>Back to dashboard</CTABtn>
         </div>
       </div>
     )
   }
 
+  const memberHandles = pool.members.map((m) => ({
+    handle: m.username || m.address.slice(0, 8),
+    displayName: m.username,
+  }))
+
   return (
-    <div className="min-h-screen bg-zinc-50">
-      {/* Nav */}
-      <nav className="bg-white border-b border-zinc-200 px-6 py-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link href="/dashboard">
-              <Button variant="ghost" size="sm">
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Button>
-            </Link>
-            <div className="flex items-center gap-2">
-              <div className="h-7 w-7 rounded-lg bg-emerald-600 flex items-center justify-center">
-                <ChefHat className="h-4 w-4 text-white" />
-              </div>
-              <span className="font-bold text-zinc-900 truncate max-w-xs">{pool.name}</span>
-              <Badge variant={pool.status === "open" ? "default" : "secondary"}>
-                {pool.status === "open" ? "Open" : "Cleared"}
-              </Badge>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="flex items-center gap-1.5 text-xs text-emerald-600">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-              Live
-            </span>
-            <Button variant="ghost" size="icon" onClick={() => refetch()}>
-              <RefreshCw className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </nav>
+    <div style={{ minHeight: "100vh", backgroundColor: "#F8F5F0" }}>
+      <AppNav
+        backLabel="Dashboard"
+        backHref="/dashboard"
+        right={autoSignOn ? (
+          <OneTapPill expiresLabel={formatExpiry(autoSignExpiry)} />
+        ) : undefined}
+      />
 
-      <main className="max-w-4xl mx-auto px-6 py-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left: Main content */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Pool balance card */}
-          <div className="bg-white rounded-xl border border-zinc-200 p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <p className="text-sm text-zinc-500 mb-1">Total at the table</p>
-                <p className="text-3xl font-bold text-zinc-900">
-                  {fromMicro(totalContributed)} INIT
-                </p>
-                {pool.description && (
-                  <p className="text-sm text-zinc-400 mt-1">{pool.description}</p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                {isMember && pool.status === "open" && (
-                  <>
-                    <ContributionModal
-                      poolId={id}
-                      poolName={pool.name}
-                      denom={pool.denom}
-                      onSuccess={() => queryClient.invalidateQueries({ queryKey: ["pool", id] })}
-                    />
-                    <AddExpenseModal
-                      poolId={id}
-                      members={pool.members}
-                      denom={pool.denom}
-                      onSuccess={() => queryClient.invalidateQueries({ queryKey: ["pool", id] })}
-                    />
-                  </>
-                )}
-              </div>
+      <main
+        style={{
+          maxWidth: 1080,
+          margin: "0 auto",
+          padding: "40px 32px 64px",
+          display: "grid",
+          gridTemplateColumns: "3fr 2fr",
+          gap: 48,
+          alignItems: "start",
+        }}
+      >
+        {/* ═══ LEFT PANEL ═══ */}
+        <div>
+          {/* Header */}
+          <header style={{ marginBottom: 36 }}>
+            <h1
+              style={{
+                fontSize: 30,
+                fontWeight: 640,
+                letterSpacing: "-0.02em",
+                color: "#1C1917",
+                margin: "0 0 4px",
+                lineHeight: 1.1,
+              }}
+            >
+              {pool.name}
+            </h1>
+            {pool.description && (
+              <p style={{ fontSize: 14, color: "#A8A29E", margin: 0, fontWeight: 400 }}>
+                {pool.description}
+              </p>
+            )}
+
+            {/* Members strip */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 18, marginBottom: 24 }}>
+              <AvatarStack handles={memberHandles} size={30} max={6} />
+              <span style={{ fontSize: 13, color: "#A8A29E" }}>{memberCount} member{memberCount !== 1 ? "s" : ""}</span>
+              {pool.status === "open" ? (
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: HEARTH,
+                    backgroundColor: "#FDF3E8",
+                    padding: "2px 8px",
+                    borderRadius: 20,
+                    fontWeight: 500,
+                  }}
+                >
+                  Open
+                </span>
+              ) : (
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "#A8A29E",
+                    backgroundColor: "#F0EBE3",
+                    padding: "2px 8px",
+                    borderRadius: 20,
+                    fontWeight: 500,
+                  }}
+                >
+                  Cleared
+                </span>
+              )}
             </div>
 
-            {/* Members list */}
-            <Separator className="my-4" />
-            <div>
-              <p className="text-xs text-zinc-400 uppercase tracking-wider mb-3">Guests at the table</p>
-              <div className="flex flex-wrap gap-2">
-                {pool.members.map((m) => (
-                  <div key={m.address} className="flex items-center gap-1.5 bg-zinc-50 border border-zinc-200 rounded-full px-3 py-1">
-                    <UsernameBadge address={m.address} username={m.username} size="sm" className="gap-1.5" />
-                    {m.address === pool.creator_address && (
-                      <span className="text-xs text-zinc-400">host</span>
-                    )}
+            {/* Stats cluster */}
+            <div style={{ display: "flex", gap: 0 }}>
+              {[
+                { label: "Pot balance", value: fromMicro(totalContributed) + " INIT" },
+                { label: "The spread", value: fromMicro(totalExpenses) + " INIT" },
+                { label: "Per person", value: perPerson > 0n ? fromMicro(perPerson) + " INIT" : "—" },
+              ].map((stat, i) => (
+                <Fragment key={stat.label}>
+                  {i > 0 && (
+                    <div style={{ width: 1, background: "#EDE8E1", margin: "0 24px" }} />
+                  )}
+                  <div>
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "#A8A29E",
+                        fontWeight: 450,
+                        marginBottom: 4,
+                        letterSpacing: "0.02em",
+                      }}
+                    >
+                      {stat.label}
+                    </div>
+                    <div
+                      className="tabular"
+                      style={{
+                        fontSize: 22,
+                        fontWeight: 620,
+                        color: "#1C1917",
+                        letterSpacing: "-0.02em",
+                      }}
+                    >
+                      {stat.value}
+                    </div>
                   </div>
-                ))}
+                </Fragment>
+              ))}
+            </div>
+          </header>
+
+          {/* Divider */}
+          <div style={{ height: 1, background: "#EDE8E1", margin: "0 0 28px" }} />
+
+          {/* Balance board */}
+          <section aria-labelledby="balance-heading" style={{ marginBottom: 36 }}>
+            <BalanceBoard
+              balances={data?.balances ?? []}
+              denom={pool.denom}
+              poolStatus={pool.status}
+              currentUserAddress={address}
+            />
+          </section>
+
+          {/* Divider */}
+          <div style={{ height: 1, background: "#EDE8E1", margin: "0 0 28px" }} />
+
+          {/* Expense feed */}
+          <section aria-labelledby="expenses-heading">
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "space-between",
+                marginBottom: 14,
+              }}
+            >
+              <span style={{ fontSize: 12, color: "#A8A29E", fontWeight: 450, letterSpacing: "0.01em" }}>
+                The spread · {data?.expenses.length ?? 0} expense{(data?.expenses.length ?? 0) !== 1 ? "s" : ""}
+              </span>
+            </div>
+
+            <ExpenseFeed
+              expenses={data?.expenses ?? []}
+              contributions={data?.contributions ?? []}
+              members={pool.members}
+              currentUserAddress={address}
+            />
+
+            {/* Add expense button */}
+            {isMember && pool.status === "open" && (
+              <AddExpenseModal
+                poolId={id}
+                members={pool.members}
+                denom={pool.denom}
+                onSuccess={() => queryClient.invalidateQueries({ queryKey: ["pool", id] })}
+                trigger={
+                  <button
+                    style={{
+                      marginTop: 16,
+                      width: "100%",
+                      padding: "9px 0",
+                      fontSize: 13,
+                      color: "#A8A29E",
+                      fontWeight: 450,
+                      background: "none",
+                      border: "1px dashed #DDD6CE",
+                      borderRadius: 6,
+                      cursor: "pointer",
+                      transition: "border-color 0.15s, color 0.15s",
+                      fontFamily: "inherit",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = HEARTH
+                      e.currentTarget.style.color = HEARTH
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = "#DDD6CE"
+                      e.currentTarget.style.color = "#A8A29E"
+                    }}
+                  >
+                    + Add to the spread
+                  </button>
+                }
+              />
+            )}
+          </section>
+        </div>
+
+        {/* ═══ RIGHT PANEL ═══ */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, position: "sticky", top: 68 }}>
+
+          {/* ── Bring your share card (open + member) ── */}
+          {isMember && pool.status === "open" && (
+            <div
+              style={{
+                backgroundColor: "#FFFFFF",
+                border: "1px solid #E2D9CE",
+                borderRadius: 10,
+                overflow: "hidden",
+              }}
+              aria-label="Bring your share"
+            >
+              {/* Hearth accent bar */}
+              <div style={{ height: 3, backgroundColor: HEARTH }} />
+
+              <div style={{ padding: "20px 20px 22px" }}>
+                <div
+                  style={{
+                    fontSize: 10.5,
+                    fontWeight: 620,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: "#78716C",
+                    marginBottom: 18,
+                  }}
+                >
+                  Bring your share
+                </div>
+
+                {/* Breakdown rows */}
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  {[
+                    { label: "Your share of expenses", value: fromMicro(myShare) + " INIT" },
+                    { label: "You've brought", value: fromMicro(myContributed) + " INIT" },
+                  ].map((row) => (
+                    <div
+                      key={row.label}
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "baseline",
+                        padding: "7px 0",
+                        borderBottom: "1px solid #F0EBE3",
+                      }}
+                    >
+                      <span style={{ fontSize: 13, color: "#78716C" }}>{row.label}</span>
+                      <span className="tabular" style={{ fontSize: 13, fontWeight: 500, color: "#1C1917" }}>
+                        {row.value}
+                      </span>
+                    </div>
+                  ))}
+
+                  {/* Remaining row */}
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "baseline",
+                      padding: "10px 0 14px",
+                    }}
+                  >
+                    <span style={{ fontSize: 13, fontWeight: 520, color: "#1C1917" }}>Remaining</span>
+                    <span
+                      className="tabular"
+                      style={{
+                        fontSize: 18,
+                        fontWeight: 640,
+                        color: myRemaining > 0n ? HEARTH : "#A8A29E",
+                        letterSpacing: "-0.02em",
+                      }}
+                    >
+                      {myRemaining > 0n ? fromMicro(myRemaining) + " INIT" : "—"}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Input / confirmation */}
+                {!contributed ? (
+                  <>
+                    <label
+                      htmlFor="bring-amount"
+                      style={{ fontSize: 11.5, color: "#A8A29E", display: "block", marginBottom: 6 }}
+                    >
+                      Amount
+                    </label>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        border: `1px solid ${inputFocused ? HEARTH : "#DDD6CE"}`,
+                        borderRadius: 6,
+                        overflow: "hidden",
+                        marginBottom: 10,
+                        boxShadow: inputFocused ? "0 0 0 3px rgba(192,122,56,0.12)" : "none",
+                        transition: "border-color 0.15s, box-shadow 0.15s",
+                      }}
+                      onClick={() => inputRef.current?.focus()}
+                    >
+                      <span
+                        className="tabular"
+                        style={{
+                          padding: "0 6px 0 12px",
+                          fontSize: 14,
+                          color: "#A8A29E",
+                          userSelect: "none",
+                          flexShrink: 0,
+                        }}
+                      >
+                        INIT
+                      </span>
+                      <input
+                        ref={inputRef}
+                        id="bring-amount"
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        onFocus={() => setInputFocused(true)}
+                        onBlur={() => setInputFocused(false)}
+                        onKeyDown={(e) => e.key === "Enter" && handleContribute()}
+                        className="tabular"
+                        style={{
+                          flex: 1,
+                          padding: "10px 12px 10px 4px",
+                          fontSize: 15,
+                          fontWeight: 550,
+                          color: "#1C1917",
+                          background: "transparent",
+                          border: "none",
+                          outline: "none",
+                          width: "100%",
+                          fontFamily: "inherit",
+                        }}
+                        aria-label="Amount to bring to the pot"
+                      />
+                    </div>
+
+                    <CTABtn
+                      full
+                      onClick={handleContribute}
+                      disabled={contributing || amountVal <= 0}
+                    >
+                      {contributing
+                        ? "Sending…"
+                        : `Bring ${amountVal > 0 ? amountVal.toFixed(2) : "0"} INIT to the pot`}
+                    </CTABtn>
+
+                    <p style={{ textAlign: "center", fontSize: 11.5, color: "#C4BAB0", margin: "10px 0 0" }}>
+                      Settles instantly · visible to all members
+                    </p>
+                  </>
+                ) : (
+                  <div className="fade-slide" style={{ textAlign: "center", padding: "8px 0 4px" }}>
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: "50%",
+                        backgroundColor: "#FDF3E8",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        margin: "0 auto 10px",
+                      }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                        <path d="M3 8l3.5 3.5L13 5" stroke={HEARTH} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 520, color: "#1C1917", marginBottom: 3 }}>
+                      {amountVal.toFixed(2)} INIT on its way
+                    </div>
+                    <div style={{ fontSize: 12, color: "#A8A29E" }}>
+                      The pot will update in a moment
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Auto-sign prompt */}
+          {/* ── One-tap toggle ── */}
           {isMember && pool.status === "open" && (
             <AutoSignPrompt poolId={id} />
           )}
 
-          {/* Expense feed */}
-          <ExpenseFeed
-            expenses={data?.expenses ?? []}
-            contributions={data?.contributions ?? []}
-            members={pool.members}
-          />
-
-          {/* Settlement flow */}
-          {isCreator && pool.status === "open" && data?.balances && (
-            <SettlementFlow
-              poolId={id}
-              poolName={pool.name}
-              balances={data.balances}
-              denom={pool.denom}
-              onSuccess={() => queryClient.invalidateQueries({ queryKey: ["pool", id] })}
-            />
-          )}
-        </div>
-
-        {/* Right: Balance board */}
-        <div className="space-y-4">
-          <BalanceBoard
-            balances={data?.balances ?? []}
-            denom={pool.denom}
-            poolStatus={pool.status}
-          />
-
-          {/* On-chain details */}
-          <div className="bg-white rounded-xl border border-zinc-200 p-4">
-            <p className="text-xs text-zinc-400 uppercase tracking-wider mb-3">On-chain details</p>
-            <div className="space-y-2">
-              <AddressDetails
-                address={pool.creator_address}
-                label="Creator"
-              />
-              {pool.tx_hash && (
-                <div className="text-xs text-zinc-500">
-                  <p className="text-zinc-400">Settlement tx</p>
-                  <a
-                    href={`${INITIA_TESTNET.explorerUrl}/txs/${pool.tx_hash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-emerald-600 hover:underline font-mono"
-                  >
-                    {pool.tx_hash.slice(0, 20)}…
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
+          {/* ── Closing note info card ── */}
+          <div
+            style={{
+              backgroundColor: "#FAF8F5",
+              border: "1px solid #EDE8E1",
+              borderRadius: 10,
+              padding: "14px 16px",
+            }}
+          >
+            <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <div style={{ flexShrink: 0, marginTop: 1 }}>
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                  <circle cx="7" cy="7" r="5.5" stroke="#C4BAB0" strokeWidth="1.2"/>
+                  <path d="M7 4v3.5" stroke="#C4BAB0" strokeWidth="1.2" strokeLinecap="round"/>
+                  <circle cx="7" cy="10" r="0.6" fill="#C4BAB0"/>
+                </svg>
+              </div>
+              {pool.status === "open" ? (
+                <p style={{ margin: 0, fontSize: 12.5, color: "#78716C", lineHeight: 1.55 }}>
+                  <span style={{ fontWeight: 520, color: "#4A3D35" }}>Clear the table</span>
+                  {" "}is available once everyone's covered. The host can close the potluck when all balances are settled.
+                </p>
+              ) : (
+                <p style={{ margin: 0, fontSize: 12.5, color: "#78716C", lineHeight: 1.55 }}>
+                  This potluck has been <span style={{ fontWeight: 520, color: "#4A3D35" }}>cleared</span>.
+                  {pool.tx_hash && (
+                    <>
+                      {" "}
+                      <a
+                        href={`${INITIA_TESTNET.explorerUrl}/txs/${pool.tx_hash}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{ color: HEARTH, textDecoration: "none" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
+                        onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
+                      >
+                        View settlement tx ↗
+                      </a>
+                    </>
+                  )}
+                </p>
               )}
-              <a
-                href={`${INITIA_TESTNET.explorerUrl}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-xs text-emerald-600 hover:underline mt-1"
-              >
-                View on InitiaScan
-                <ExternalLink className="h-3 w-3" />
-              </a>
             </div>
           </div>
 
-          {/* Share link */}
-          <div className="bg-zinc-50 rounded-xl border border-zinc-200 p-4">
-            <p className="text-xs text-zinc-400 uppercase tracking-wider mb-2">Invite others</p>
-            <p className="text-xs text-zinc-500 mb-2">Share this link to invite more guests</p>
-            <button
-              onClick={copyInviteLink}
-              className="flex items-center gap-1.5 text-xs text-emerald-600 hover:underline font-medium"
+          {/* ── Creator: clear the table ── */}
+          {isCreator && pool.status === "open" && (
+            <CTABtn
+              variant="dark"
+              full
+              onClick={() => router.push(`/p/${id}/settle`)}
             >
-              {copied ? (
-                <><CheckCircle2 className="h-3.5 w-3.5" /> Copied!</>
-              ) : (
-                <><Copy className="h-3.5 w-3.5" /> Copy invite link</>
-              )}
+              Clear the table →
+            </CTABtn>
+          )}
+
+          {/* ── Archive link (closed pool) ── */}
+          {pool.status === "closed" && (
+            <button
+              onClick={() => router.push(`/p/${id}/archive`)}
+              style={{
+                width: "100%",
+                padding: "10px 0",
+                fontSize: 13,
+                color: "#A8A29E",
+                background: "none",
+                border: "1px solid #E2D9CE",
+                borderRadius: 6,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                transition: "border-color 0.15s, color 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = HEARTH
+                e.currentTarget.style.color = HEARTH
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "#E2D9CE"
+                e.currentTarget.style.color = "#A8A29E"
+              }}
+            >
+              View full history
             </button>
-          </div>
+          )}
+
+          {/* ── Share link ── */}
+          <InviteLink />
         </div>
       </main>
+
+      <style>{`
+        @media (max-width: 720px) {
+          main { grid-template-columns: 1fr !important; gap: 32px !important; padding: 24px 20px 80px !important; position: relative !important; }
+          main > div:last-child { position: static !important; }
+        }
+      `}</style>
     </div>
+  )
+}
+
+function InviteLink() {
+  const [copied, setCopied] = useState(false)
+
+  const copy = () => {
+    navigator.clipboard.writeText(window.location.href)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <button
+      onClick={copy}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        fontSize: 12,
+        color: copied ? HEARTH : "#A8A29E",
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        padding: "6px 0",
+        fontFamily: "inherit",
+        transition: "color 0.15s",
+        justifyContent: "center",
+      }}
+      onMouseEnter={(e) => !copied && (e.currentTarget.style.color = "#78716C")}
+      onMouseLeave={(e) => !copied && (e.currentTarget.style.color = "#A8A29E")}
+    >
+      {copied ? (
+        <>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <path d="M2 6l2.5 2.5L10 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Copied!
+        </>
+      ) : (
+        <>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+            <rect x="1.5" y="3.5" width="7" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.2"/>
+            <path d="M4 3V2.5A1.5 1.5 0 015.5 1h4A1.5 1.5 0 0111 2.5v4A1.5 1.5 0 019.5 8H9" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+          </svg>
+          Copy invite link
+        </>
+      )}
+    </button>
   )
 }
