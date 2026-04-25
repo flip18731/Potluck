@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { UsernameBadge } from "@/components/identity/UsernameBadge"
 import { toast } from "sonner"
-import { toMicro, INITIA_TESTNET } from "@/lib/initia/chain"
+import { toMicro, fromMicro, INITIA_TESTNET } from "@/lib/initia/chain"
 import { Loader2, UtensilsCrossed } from "lucide-react"
 import { formatIdentity } from "@/lib/initia/username"
 
@@ -65,11 +65,8 @@ export function AddExpenseModal({ poolId, members, denom, onSuccess }: AddExpens
         }),
       })
 
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error || "Failed to add expense")
-      }
-      const expense = await res.json()
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to add expense")
 
       const paidByDisplay = formatIdentity(paidByAddress, paidByMember?.username ?? null)
       toast.success(`Expense added — passing the plate to ${paidByDisplay}`, {
@@ -162,8 +159,8 @@ export function AddExpenseModal({ poolId, members, denom, onSuccess }: AddExpens
                   />
                   <UsernameBadge address={m.address} username={m.username} size="sm" />
                   {splitBetween.includes(m.address) && amount && splitBetween.length > 0 && (
-                    <span className="ml-auto text-xs text-zinc-400">
-                      {(parseFloat(amount) / splitBetween.length).toFixed(2)} INIT
+                    <span className="ml-auto text-xs text-zinc-400 font-mono">
+                      {fromMicro((toMicro(amount) / BigInt(splitBetween.length)).toString())} INIT
                     </span>
                   )}
                 </label>

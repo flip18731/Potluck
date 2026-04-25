@@ -2,7 +2,7 @@
 
 import { useInterwovenKit } from "@initia/interwovenkit-react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { use, useEffect, useRef } from "react"
+import { use } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
@@ -14,11 +14,11 @@ import { ExpenseFeed } from "@/components/potluck/ExpenseFeed"
 import { BalanceBoard } from "@/components/potluck/BalanceBoard"
 import { AutoSignPrompt } from "@/components/potluck/AutoSignPrompt"
 import { SettlementFlow } from "@/components/potluck/SettlementFlow"
-import { formatAmount, fromMicro } from "@/lib/initia/chain"
-import { ChefHat, ArrowLeft, ExternalLink, RefreshCw } from "lucide-react"
+import { fromMicro, INITIA_TESTNET } from "@/lib/initia/chain"
+import { ChefHat, ArrowLeft, ExternalLink, RefreshCw, Copy, CheckCircle2 } from "lucide-react"
 import Link from "next/link"
-import { INITIA_TESTNET } from "@/lib/initia/chain"
-import { calcBalances } from "@/lib/potluck/calc"
+import { useState } from "react"
+import { toast } from "sonner"
 
 interface PoolData {
   pool: {
@@ -65,6 +65,14 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
   const { id } = use(params)
   const { address, username } = useInterwovenKit()
   const queryClient = useQueryClient()
+  const [copied, setCopied] = useState(false)
+
+  const copyInviteLink = () => {
+    navigator.clipboard.writeText(window.location.href)
+    setCopied(true)
+    toast.success("Invite link copied!")
+    setTimeout(() => setCopied(false), 2000)
+  }
 
   const { data, isLoading, refetch } = useQuery<PoolData>({
     queryKey: ["pool", id],
@@ -127,9 +135,15 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
               </Badge>
             </div>
           </div>
-          <Button variant="ghost" size="icon" onClick={() => refetch()}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1.5 text-xs text-emerald-600">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              Live
+            </span>
+            <Button variant="ghost" size="icon" onClick={() => refetch()}>
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
       </nav>
 
@@ -256,12 +270,14 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
             <p className="text-xs text-zinc-400 uppercase tracking-wider mb-2">Invite others</p>
             <p className="text-xs text-zinc-500 mb-2">Share this link to invite more guests</p>
             <button
-              onClick={() => {
-                navigator.clipboard.writeText(window.location.href)
-              }}
-              className="text-xs text-emerald-600 hover:underline"
+              onClick={copyInviteLink}
+              className="flex items-center gap-1.5 text-xs text-emerald-600 hover:underline font-medium"
             >
-              Copy invite link
+              {copied ? (
+                <><CheckCircle2 className="h-3.5 w-3.5" /> Copied!</>
+              ) : (
+                <><Copy className="h-3.5 w-3.5" /> Copy invite link</>
+              )}
             </button>
           </div>
         </div>

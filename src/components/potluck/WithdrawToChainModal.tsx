@@ -8,7 +8,8 @@ import {
 import { Button } from "@/components/ui/button"
 import { fromMicro, INITIA_TESTNET } from "@/lib/initia/chain"
 import { BRIDGE_TARGETS, buildBridgeDetails } from "@/lib/initia/bridge"
-import { Globe } from "lucide-react"
+import { Globe, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 interface WithdrawToChainModalProps {
   memberAddress: string
@@ -19,14 +20,22 @@ interface WithdrawToChainModalProps {
 export function WithdrawToChainModal({ memberAddress, amount, denom }: WithdrawToChainModalProps) {
   const { openBridge } = useInterwovenKit()
   const [open, setOpen] = useState(false)
+  const [bridging, setBridging] = useState(false)
 
   const displayAmount = fromMicro(amount)
   const displayDenom = denom.replace("u", "").toUpperCase()
 
-  const handleBridge = (target: typeof BRIDGE_TARGETS[0]) => {
-    const details = buildBridgeDetails(target.chainId, target.denom)
-    openBridge(details)
-    setOpen(false)
+  const handleBridge = async (target: typeof BRIDGE_TARGETS[0]) => {
+    setBridging(true)
+    try {
+      const details = buildBridgeDetails(target.chainId, target.denom)
+      await openBridge(details)
+      setOpen(false)
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "Bridge failed — try again")
+    } finally {
+      setBridging(false)
+    }
   }
 
   return (
@@ -57,11 +66,16 @@ export function WithdrawToChainModal({ memberAddress, amount, denom }: WithdrawT
               <button
                 key={target.chainId}
                 onClick={() => handleBridge(target)}
-                className="w-full flex items-center justify-between p-3 border border-zinc-200 rounded-xl hover:bg-zinc-50 hover:border-emerald-300 transition-colors"
+                disabled={bridging}
+                className="w-full flex items-center justify-between p-3 border border-zinc-200 rounded-xl hover:bg-zinc-50 hover:border-emerald-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center gap-2">
                   <div className="h-8 w-8 rounded-full bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center">
-                    <Globe className="h-4 w-4 text-white" />
+                    {bridging ? (
+                      <Loader2 className="h-4 w-4 text-white animate-spin" />
+                    ) : (
+                      <Globe className="h-4 w-4 text-white" />
+                    )}
                   </div>
                   <div className="text-left">
                     <p className="text-sm font-medium">{target.chainName}</p>

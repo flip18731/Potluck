@@ -14,7 +14,7 @@ import Link from "next/link"
 export default function ArchivePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: ["pool", id],
     queryFn: async () => {
       const res = await fetch(`/api/pools/${id}`)
@@ -58,8 +58,23 @@ export default function ArchivePage({ params }: { params: Promise<{ id: string }
     URL.revokeObjectURL(url)
   }
 
-  if (isLoading || !pool) {
-    return <div className="min-h-screen bg-zinc-50 flex items-center justify-center text-zinc-400">Loading…</div>
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
+        <div className="text-zinc-400">Loading archive…</div>
+      </div>
+    )
+  }
+
+  if (isError || !pool) {
+    return (
+      <div className="min-h-screen bg-zinc-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-zinc-500 mb-4">Potluck not found</p>
+          <Link href="/dashboard"><Button variant="outline">Back to dashboard</Button></Link>
+        </div>
+      </div>
+    )
   }
 
   return (
