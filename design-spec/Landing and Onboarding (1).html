@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Potluck — Design Preview</title>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,450;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body, #root { height: 100%; }
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: #F8F5F0;
+      color: #1C1917;
+      -webkit-font-smoothing: antialiased;
+    }
+    .tabnum { font-variant-numeric: tabular-nums; }
+
+    /* Shared input reset */
+    input, button { font-family: inherit; }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    input[type=number] { -moz-appearance: textfield; }
+
+    /* Smooth page transitions */
+    @keyframes screenIn {
+      from { transform: translateY(4px); }
+      to   { transform: translateY(0); }
+    }
+    .screen { animation: screenIn 0.22s ease; }
+
+    /* Member row */
+    .member-row {
+      display: flex; align-items: center; gap: 14px;
+      padding: 12px 0; border-bottom: 1px solid #EDE8E1;
+    }
+    .member-row:last-child { border-bottom: none; }
+
+    /* Input focus ring */
+    .field-input { transition: border-color 0.15s; }
+    .field-input:focus { outline: none; border-color: #C07A38 !important; }
+
+    /* Landing sections */
+    .section-white  { background: #fff; }
+    .section-hearth { background: #FDF3E8; }
+    .section-dark   { background: #1C1917; }
+
+    a { color: inherit; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .screen { animation: none; }
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+  const { useState, useEffect, useRef } = React;
+
+  /* ─── Shared ──────────────────────────────────────────── */
+
+  const AVATAR_COL = {
+    'anna.init':    { bg: '#D4C5B0', fg: '#5A4A3A' },
+    'philipp.init': { bg: '#B9C0CA', fg: '#3A3F50' },
+    'lisa.init':    { bg: '#BBC8B6', fg: '#3A5038' },
+    'tom.init':     { bg: '#CAB9B0', fg: '#5A3A38' },
+    'maya.init':    { bg: '#C07A38', fg: '#FFFFFF' },
+  };
+
+  function Avatar({ handle, initials, size = 30, ghost = false }) {
+    const c = AVATAR_COL[handle] || { bg: '#CCC', fg: '#888' };
+    return (
+      <div style={{
+        width: size, height: size, borderRadius: '50%', flexShrink: 0,
+        backgroundColor: ghost ? '#E8E3DC' : c.bg,
+        color: ghost ? '#A8A29E' : c.fg,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: size * 0.36, fontWeight: 500, userSelect: 'none',
+      }}>{initials}</div>
+    );
+  }
+
+  function Arc({ pct = 0, size = 40 }) {
+    const sw = 2.5, r = size / 2 - sw, cx = size / 2;
+    const circ = 2 * Math.PI * r;
+    return (
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}
+        style={{ transform: 'rotate(-90deg)', flexShrink: 0 }} aria-hidden="true">
+        <circle cx={cx} cy={cx} r={r} fill="none" stroke="#EDE8E1" strokeWidth={sw} />
+        {pct > 0 && (
+          <circle cx={cx} cy={cx} r={r} fill="none" stroke="#C07A38"
+            strokeWidth={sw} strokeDasharray={`${pct * circ} ${circ}`} strokeLinecap="round" />
+        )}
+      </svg>
+    );
+  }
+
+  const HEARTH = '#C07A38';
+  const CREAM  = '#F8F5F0';
+
+  /* Reusable nav */
+  function AppNav({ backLabel = 'Dashboard', right = null }) {
+    return (
+      <nav style={{
+        position: 'sticky', top: 0, zIndex: 20,
+        backgroundColor: CREAM, borderBottom: '1px solid #EDE8E1',
+      }}>
+        <div style={{ maxWidth: 1080, margin: '0 auto', padding: '0 32px', height: 52, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <button style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#A8A29E', background: 'none', border: 'none', cursor: 'pointer', padding: 0, transition: 'color 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.color = '#1C1917'}
+            onMouseLeave={e => e.currentTarget.style.color = '#A8A29E'}>
+            <svg width="15" height="15" viewBox="0 0 15 15" fill="none" aria-hidden="true">
+              <path d="M9.5 12L5 7.5 9.5 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            {backLabel}
+          </button>
+          {right}
+        </div>
+      </nav>
+    );
+  }
+
+  /* Reusable CTA button */
+  function CTABtn({ onClick, disabled, children, full = false, size = 'md' }) {
+    const pad = size === 'lg' ? '13px 32px' : size === 'sm' ? '7px 16px' : '10px 22px';
+    const fs  = size === 'lg' ? 15.5 : size === 'sm' ? 13 : 14;
+    return (
+      <button onClick={onClick} disabled={disabled}
+        style={{
+          padding: pad, fontSize: fs, fontWeight: 560, letterSpacing: '-0.01em',
+          backgroundColor: disabled ? '#EDE8E1' : HEARTH,
+          color: disabled ? '#B8B0A8' : '#FFF',
+          border: 'none', borderRadius: 7, cursor: disabled ? 'default' : 'pointer',
+          width: full ? '100%' : undefined, transition: 'opacity 0.15s',
+        }}
+        onMouseEnter={e => { if (!disabled) e.currentTarget.style.opacity = '0.88'; }}
+        onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
+        {children}
+      </button>
+    );
+  }
+
+  /* ─── Landing Page ─────────────────────────────────────── */
+
+  function LandingPage({ onStart }) {
+    return (
+      <div className="screen" style={{ backgroundColor: CREAM }}>
+
+        {/* Nav */}
+        <nav style={{ position: 'sticky', top: 0, zIndex: 20, backgroundColor: CREAM, borderBottom: '1px solid #EDE8E1' }}>
+          <div style={{ maxWidth: 1080, margin: '0 auto', padding: '0 48px', height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 17, fontWeight: 640, color: '#1C1917', letterSpacing: '-0.025em' }}>Potluck</span>
+            <CTABtn onClick={onStart} size="sm">Start a potluck →</CTABtn>
+          </div>
+        </nav>
+
+        {/* Hero */}
+        <section style={{ maxWidth: 1080, margin: '0 auto', padding: '88px 48px 100px' }}>
+          <div style={{ maxWidth: 660 }}>
+            <h1 style={{ fontSize: 56, fontWeight: 640, letterSpacing: '-0.035em', color: '#1C1917', lineHeight: 1.06, margin: '0 0 24px' }}>
+              Everyone brings<br />something. Nobody<br />has to ask.
+            </h1>
+            <p style={{ fontSize: 18, color: '#78716C', lineHeight: 1.68, margin: '0 0 36px', maxWidth: 510 }}>
+              Potluck is a shared pot for group expenses. Everyone chips in upfront, costs come out as the trip happens, and at the end whatever's left goes back to everyone — automatically.
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+              <CTABtn onClick={onStart} size="lg">Start a potluck →</CTABtn>
+              <span style={{ fontSize: 13, color: '#A8A29E' }}>Sign in with Google. Free for groups.</span>
+            </div>
+          </div>
+        </section>
+
+        {/* Problem */}
+        <section className="section-white" style={{ padding: '68px 48px' }}>
+          <div style={{ maxWidth: 680, margin: '0 auto' }}>
+            <p style={{ fontSize: 20, color: '#4A3D35', lineHeight: 1.65, fontWeight: 400 }}>
+              One person booked the Airbnb. Someone else got groceries. A third handled lift tickets across the week. By Sunday night, nobody knows who owes whom how much. Two months later, three people still haven't been paid back.
+            </p>
+            <p style={{ fontSize: 16, color: '#78716C', lineHeight: 1.68, marginTop: 22 }}>
+              This is the pattern Potluck is designed to end — not by tracking who owes what, but by settling it automatically when the trip closes.
+            </p>
+          </div>
+        </section>
+
+        {/* How it works */}
+        <section style={{ padding: '72px 48px 80px' }}>
+          <div style={{ maxWidth: 1080, margin: '0 auto' }}>
+            <p style={{ fontSize: 11.5, color: '#A8A29E', fontWeight: 550, letterSpacing: '0.09em', textTransform: 'uppercase', marginBottom: 52 }}>
+              How it works
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 52 }}>
+              {[
+                { n: '01', title: 'Set the table',
+                  body: 'Create a potluck, name it, invite your group. Everyone puts their expected share into the shared pot. The money belongs to the group — no single person holds it.' },
+                { n: '02', title: 'Add to the spread',
+                  body: 'As expenses happen, log them. The pot pays out automatically, or reimburses whoever fronted the cash. Balances update in real time for everyone in the group.' },
+                { n: '03', title: 'Clear the table',
+                  body: "When the trip's over, one action distributes what's left back to everyone. No invoices, no follow-up texts, no spreadsheet. Cleared." },
+              ].map(s => (
+                <div key={s.n}>
+                  <div className="tabnum" style={{ fontSize: 38, fontWeight: 300, color: '#DDD6CE', lineHeight: 1, marginBottom: 18 }}>{s.n}</div>
+                  <div style={{ fontSize: 15.5, fontWeight: 580, color: '#1C1917', marginBottom: 10 }}>{s.title}</div>
+                  <p style={{ fontSize: 14, color: '#78716C', lineHeight: 1.65 }}>{s.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Trust strip */}
+        <section className="section-white" style={{ padding: '36px 48px' }}>
+          <div style={{ maxWidth: 1080, margin: '0 auto', display: 'flex', alignItems: 'center', gap: 0 }}>
+            {[
+              'Real money, settled instantly.',
+              'Every balance visible to all members.',
+              "No single person holds the group's pot.",
+            ].map((t, i) => (
+              <React.Fragment key={t}>
+                {i > 0 && <div style={{ width: 1, height: 22, backgroundColor: '#EDE8E1', margin: '0 28px', flexShrink: 0 }} />}
+                <p style={{ fontSize: 13.5, color: '#78716C', lineHeight: 1.5 }}>{t}</p>
+              </React.Fragment>
+            ))}
+          </div>
+        </section>
+
+        {/* Second CTA */}
+        <section className="section-hearth" style={{ padding: '80px 48px' }}>
+          <div style={{ maxWidth: 1080, margin: '0 auto', textAlign: 'center' }}>
+            <h2 style={{ fontSize: 34, fontWeight: 640, letterSpacing: '-0.025em', color: '#1C1917', margin: '0 0 14px' }}>
+              Your next trip deserves this.
+            </h2>
+            <p style={{ fontSize: 16, color: '#78716C', margin: '0 0 34px' }}>
+              Set up a potluck in about thirty seconds.
+            </p>
+            <CTABtn onClick={onStart} size="lg">Start a potluck →</CTABtn>
+          </div>
+        </section>
+
+        {/* Footer */}
+        <footer className="section-dark" style={{ padding: '44px 48px 36px' }}>
+          <div style={{ maxWidth: 1080, margin: '0 auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 36 }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 640, color: '#F8F5F0', letterSpacing: '-0.02em', marginBottom: 6 }}>Potluck</div>
+                <p style={{ fontSize: 13, color: '#4A4440', lineHeight: 1.5 }}>The shared pot for group expenses.</p>
+              </div>
+              <div style={{ display: 'flex', gap: 28 }}>
+                {['Terms', 'Privacy', 'Contact'].map(l => (
+                  <a key={l} href="#" style={{ fontSize: 13, color: '#5A5050', textDecoration: 'none', transition: 'color 0.15s' }}
+                    onMouseEnter={e => e.target.style.color = '#A8A29E'}
+                    onMouseLeave={e => e.target.style.color = '#5A5050'}>{l}</a>
+                ))}
+              </div>
+            </div>
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: 20, display: 'flex', justifyContent: 'space-between' }}>
+              <p style={{ fontSize: 12, color: '#3A3030' }}>© 2026 Potluck</p>
+              <p style={{ fontSize: 12, color: '#3A3030' }}>Built on Initia</p>
+            </div>
+          </div>
+        </footer>
+      </div>
+    );
+  }
+
+  /* ─── Sign In ──────────────────────────────────────────── */
+
+  function SignIn({ onNext }) {
+    return (
+      <div className="screen" style={{ minHeight: 'calc(100vh - 52px)', backgroundColor: CREAM, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <div style={{ width: '100%', maxWidth: 380, textAlign: 'center' }}>
+          <div style={{ fontSize: 20, fontWeight: 640, color: '#1C1917', letterSpacing: '-0.025em', marginBottom: 32 }}>Potluck</div>
+          <h1 style={{ fontSize: 24, fontWeight: 620, letterSpacing: '-0.02em', color: '#1C1917', marginBottom: 8 }}>
+            Sign in to continue
+          </h1>
+          <p style={{ fontSize: 14, color: '#A8A29E', lineHeight: 1.6, marginBottom: 36 }}>
+            You were invited to a potluck.<br />Sign in to join — it takes about ten seconds.
+          </p>
+
+          {/* Google button */}
+          <button
+            onClick={onNext}
+            style={{
+              width: '100%', padding: '11px 20px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+              backgroundColor: '#FFF', border: '1px solid #DDD6CE',
+              borderRadius: 7, fontSize: 14.5, fontWeight: 480, color: '#1C1917',
+              cursor: 'pointer', transition: 'border-color 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = HEARTH}
+            onMouseLeave={e => e.currentTarget.style.borderColor = '#DDD6CE'}
+          >
+            <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+              <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844a4.14 4.14 0 0 1-1.796 2.716v2.259h2.908C16.658 14.252 17.64 11.944 17.64 9.2z" fill="#4285F4"/>
+              <path d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" fill="#34A853"/>
+              <path d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" fill="#FBBC05"/>
+              <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" fill="#EA4335"/>
+            </svg>
+            Continue with Google
+          </button>
+
+          <p style={{ fontSize: 12, color: '#C4BAB0', marginTop: 18, lineHeight: 1.6 }}>
+            Your money is held securely.<br />No payment details required to get started.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  /* ─── Claim Handle ─────────────────────────────────────── */
+
+  function ClaimHandle({ onNext }) {
+    const [raw, setRaw]       = useState('');
+    const [status, setStatus] = useState('idle'); // idle | checking | available | taken
+    const timerRef = useRef(null);
+
+    const handle = raw.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 24);
+
+    useEffect(() => {
+      if (!handle) { setStatus('idle'); return; }
+      setStatus('checking');
+      clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        const taken = ['anna', 'tom', 'mike', 'sarah', 'alex', 'max'];
+        setStatus(taken.includes(handle) ? 'taken' : 'available');
+      }, 650);
+      return () => clearTimeout(timerRef.current);
+    }, [handle]);
+
+    return (
+      <div className="screen" style={{ minHeight: 'calc(100vh - 52px)', backgroundColor: CREAM, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 32 }}>
+        <div style={{ width: '100%', maxWidth: 400 }}>
+          <p style={{ fontSize: 12, color: '#A8A29E', fontWeight: 450, marginBottom: 10, textAlign: 'center' }}>Almost there</p>
+          <h1 style={{ fontSize: 25, fontWeight: 640, letterSpacing: '-0.025em', color: '#1C1917', marginBottom: 8, textAlign: 'center' }}>
+            What should we call you?
+          </h1>
+          <p style={{ fontSize: 14, color: '#A8A29E', textAlign: 'center', marginBottom: 36, lineHeight: 1.6 }}>
+            Pick a handle. This is how others find and invite you to potlucks.
+          </p>
+
+          {/* Handle input */}
+          <div style={{
+            display: 'flex', alignItems: 'center',
+            border: `1px solid ${status === 'available' ? HEARTH : '#DDD6CE'}`,
+            borderRadius: 7, backgroundColor: '#FFF',
+            overflow: 'hidden', marginBottom: 8, transition: 'border-color 0.2s',
+          }}>
+            <span style={{ padding: '11px 2px 11px 14px', fontSize: 15, color: '#A8A29E', userSelect: 'none' }}>@</span>
+            <input
+              value={handle}
+              onChange={e => setRaw(e.target.value)}
+              placeholder="yourname"
+              maxLength={24}
+              aria-label="Choose your Potluck handle"
+              style={{ flex: 1, padding: '11px 0', fontSize: 15, fontWeight: 480, color: '#1C1917', background: 'transparent', border: 'none', outline: 'none' }}
+            />
+            <span style={{ padding: '11px 14px 11px 2px', fontSize: 15, color: '#A8A29E', userSelect: 'none' }}>.init</span>
+          </div>
+
+          {/* Status */}
+          <div style={{ minHeight: 22, marginBottom: 22, paddingLeft: 2 }}>
+            {status === 'checking'  && <span style={{ fontSize: 12, color: '#A8A29E' }}>Checking…</span>}
+            {status === 'available' && <span style={{ fontSize: 12, color: HEARTH, fontWeight: 500 }}>@{handle}.init is available</span>}
+            {status === 'taken'     && <span style={{ fontSize: 12, color: '#A8A29E' }}>That handle is taken — try another</span>}
+          </div>
+
+          <CTABtn onClick={onNext} disabled={status !== 'available'} full>
+            {status === 'available' ? `Claim @${handle}.init →` : 'Claim this handle'}
+          </CTABtn>
+        </div>
+      </div>
+    );
+  }
+
+  /* ─── Empty Dashboard ──────────────────────────────────── */
+
+  function EmptyDashboard({ onNext }) {
+    return (
+      <div className="screen" style={{ minHeight: '100vh', backgroundColor: CREAM }}>
+        <AppNav backLabel="" right={<CTABtn onClick={onNext} size="sm">Set the table →</CTABtn>} />
+        <div style={{ maxWidth: 1080, margin: '0 auto', padding: '40px 32px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 32 }}>
+            <div>
+              <h1 style={{ fontSize: 21, fontWeight: 620, letterSpacing: '-0.02em', color: '#1C1917', marginBottom: 3 }}>Your potlucks</h1>
+              <p style={{ fontSize: 13, color: '#A8A29E' }}>@maya.init</p>
+            </div>
+          </div>
+
+          {/* Empty state */}
+          <div style={{ border: '1.5px dashed #DDD6CE', borderRadius: 10, padding: '72px 48px', textAlign: 'center' }}>
+            <p style={{ fontSize: 16, fontWeight: 490, color: '#78716C', marginBottom: 8 }}>
+              No potlucks yet.
+            </p>
+            <p style={{ fontSize: 14, color: '#A8A29E', marginBottom: 30, lineHeight: 1.65, maxWidth: 320, margin: '0 auto 30px' }}>
+              Start one for your next trip, dinner,<br />or anything your group shares the bill for.
+            </p>
+            <CTABtn onClick={onNext}>Set the table →</CTABtn>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  /* ─── Create Potluck ───────────────────────────────────── */
+
+  const MEMBER_META = {
+    'anna.init':    { name: 'Anna',    initials: 'A' },
+    'philipp.init': { name: 'Philipp', initials: 'P' },
+    'lisa.init':    { name: 'Lisa',    initials: 'L' },
+    'tom.init':     { name: 'Tom',     initials: 'T' },
+  };
+
+  function CreatePotluck({ onNext }) {
+    const [name, setName]         = useState('Alpine Weekend');
+    const [desc, setDesc]         = useState('Chamonix, France');
+    const [endDate, setEndDate]   = useState('2027-02-17');
+    const [members, setMembers]   = useState(['anna.init', 'philipp.init']);
+    const [mInput, setMInput]     = useState('');
+    const [mFocus, setMFocus]     = useState(false);
+
+    const addMember = () => {
+      const h = mInput.replace(/@/g, '').replace('.init', '').trim().toLowerCase();
+      const full = h + '.init';
+      if (h && !members.includes(full)) setMembers(prev => [...prev, full]);
+      setMInput('');
+    };
+
+    const fieldStyle = {
+      width: '100%', padding: '10px 12px',
+      border: '1px solid #DDD6CE', borderRadius: 6,
+      fontSize: 14, color: '#1C1917', backgroundColor: '#FFF',
+      outline: 'none', fontFamily: 'DM Sans, system-ui',
+    };
+
+    return (
+      <div className="screen" style={{ minHeight: '100vh', backgroundColor: CREAM }}>
+        <AppNav backLabel="Dashboard" />
+        <main style={{ maxWidth: 560, margin: '0 auto', padding: '48px 32px 64px' }}>
+          <h1 style={{ fontSize: 25, fontWeight: 640, letterSpacing: '-0.025em', color: '#1C1917', marginBottom: 6 }}>Set the table</h1>
+          <p style={{ fontSize: 14, color: '#A8A29E', marginBottom: 36 }}>Give your potluck a name and invite your group.</p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20, marginBottom: 32 }}>
+
+            {/* Name */}
+            <div>
+              <label style={{ fontSize: 12.5, color: '#78716C', fontWeight: 500, display: 'block', marginBottom: 7 }}>Name</label>
+              <input value={name} onChange={e => setName(e.target.value)} placeholder="Ski Trip 2026"
+                className="field-input" style={fieldStyle} />
+            </div>
+
+            {/* Description */}
+            <div>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 7 }}>
+                <label style={{ fontSize: 12.5, color: '#78716C', fontWeight: 500 }}>Description</label>
+                <span style={{ fontSize: 11.5, color: '#C4BAB0' }}>Optional</span>
+              </div>
+              <input value={desc} onChange={e => setDesc(e.target.value)} placeholder="A few words about the trip"
+                className="field-input" style={fieldStyle} />
+            </div>
+
+            {/* End date */}
+            <div>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 7 }}>
+                <label style={{ fontSize: 12.5, color: '#78716C', fontWeight: 500 }}>End date</label>
+                <span style={{ fontSize: 11.5, color: '#C4BAB0' }}>Optional</span>
+              </div>
+              <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
+                className="field-input" style={fieldStyle} />
+            </div>
+
+            {/* Members */}
+            <div>
+              <label style={{ fontSize: 12.5, color: '#78716C', fontWeight: 500, display: 'block', marginBottom: 7 }}>
+                Invite members
+              </label>
+              <div
+                style={{
+                  border: `1px solid ${mFocus ? HEARTH : '#DDD6CE'}`,
+                  borderRadius: 7, padding: '7px 10px',
+                  backgroundColor: '#FFF', minHeight: 48,
+                  display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center',
+                  cursor: 'text', transition: 'border-color 0.15s',
+                }}
+                onClick={e => { if (e.target === e.currentTarget) e.currentTarget.querySelector('input')?.focus(); }}
+              >
+                {members.map(m => {
+                  const meta = MEMBER_META[m];
+                  return (
+                    <div key={m} style={{
+                      display: 'flex', alignItems: 'center', gap: 5,
+                      padding: '3px 8px', backgroundColor: '#F5F0EA',
+                      borderRadius: 20, fontSize: 13, color: '#5A4A3A',
+                    }}>
+                      <Avatar handle={m} initials={meta?.initials || m[0].toUpperCase()} size={18} />
+                      @{m}
+                      <button onClick={() => setMembers(prev => prev.filter(x => x !== m))}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#A8A29E', padding: 0, fontSize: 15, lineHeight: 1, marginLeft: 1 }}>×</button>
+                    </div>
+                  );
+                })}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 3, flex: 1, minWidth: 100 }}>
+                  <span style={{ fontSize: 13, color: '#C4BAB0' }}>@</span>
+                  <input
+                    value={mInput}
+                    onChange={e => setMInput(e.target.value)}
+                    onFocus={() => setMFocus(true)}
+                    onBlur={() => { setMFocus(false); }}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addMember(); } }}
+                    placeholder="handle.init"
+                    style={{ flex: 1, fontSize: 13.5, border: 'none', outline: 'none', background: 'transparent', fontFamily: 'DM Sans, system-ui', color: '#1C1917' }}
+                  />
+                </div>
+              </div>
+              <p style={{ fontSize: 12, color: '#A8A29E', marginTop: 6 }}>
+                Type a handle and press Enter to add.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ height: 1, backgroundColor: '#EDE8E1', marginBottom: 24 }} />
+          <CTABtn onClick={onNext} disabled={!name.trim()} full size="md">Set the table →</CTABtn>
+        </main>
+      </div>
+    );
+  }
+
+  /* ─── Fresh Potluck ────────────────────────────────────── */
+
+  const FRESH_MEMBERS = [
+    { handle: 'maya.init',    name: 'Maya',    initials: 'M', pending: false, isMe: true },
+    { handle: 'anna.init',    name: 'Anna',    initials: 'A', pending: false },
+    { handle: 'philipp.init', name: 'Philipp', initials: 'P', pending: false },
+    { handle: 'tom.init',     name: 'Tom',     initials: 'T', pending: true  },
+    { handle: 'lisa.init',    name: 'Lisa',    initials: 'L', pending: true  },
+  ];
+
+  function FreshPotluck() {
+    const [amount, setAmount] = useState('');
+    const amtVal = parseFloat(amount) || 0;
+
+    return (
+      <div className="screen" style={{ minHeight: '100vh', backgroundColor: CREAM }}>
+        <AppNav backLabel="Dashboard" right={
+          <button style={{ fontSize: 13, color: '#A8A29E', background: 'none', border: '1px solid #DDD6CE', borderRadius: 5, padding: '5px 12px', cursor: 'pointer' }}>
+            + Add expense
+          </button>
+        } />
+
+        <main style={{ maxWidth: 1080, margin: '0 auto', padding: '40px 32px 64px', display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 48, alignItems: 'start' }}>
+
+          {/* LEFT */}
+          <div>
+            {/* Header */}
+            <header style={{ marginBottom: 36 }}>
+              <h1 style={{ fontSize: 30, fontWeight: 640, letterSpacing: '-0.02em', color: '#1C1917', lineHeight: 1.1, marginBottom: 4 }}>
+                Alpine Weekend
+              </h1>
+              <p style={{ fontSize: 14, color: '#A8A29E', marginBottom: 18 }}>
+                Chamonix, France &nbsp;·&nbsp; Feb 14–17, 2027
+              </p>
+
+              {/* Avatar stack */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
+                <div style={{ display: 'flex' }}>
+                  {FRESH_MEMBERS.map((m, i) => (
+                    <div key={m.handle} style={{ marginLeft: i ? -8 : 0, boxShadow: '0 0 0 2px #F8F5F0', borderRadius: '50%' }}>
+                      <Avatar handle={m.handle} initials={m.initials} size={30} ghost={m.pending} />
+                    </div>
+                  ))}
+                </div>
+                <span style={{ fontSize: 13, color: '#A8A29E' }}>5 members · 2 invites pending</span>
+              </div>
+
+              {/* Stats — all zero */}
+              <div style={{ display: 'flex' }}>
+                {[
+                  { label: 'Pot balance', val: '€0.00',  dim: false },
+                  { label: 'The spread',  val: '€0.00',  dim: true  },
+                  { label: 'Per person',  val: '—',       dim: true  },
+                ].map((s, i) => (
+                  <React.Fragment key={s.label}>
+                    {i > 0 && <div style={{ width: 1, background: '#EDE8E1', margin: '0 24px' }} />}
+                    <div>
+                      <div style={{ fontSize: 11, color: '#A8A29E', fontWeight: 450, marginBottom: 4 }}>{s.label}</div>
+                      <div className="tabnum" style={{ fontSize: 22, fontWeight: 580, letterSpacing: '-0.02em', color: s.dim ? '#C4BAB0' : '#1C1917' }}>
+                        {s.val}
+                      </div>
+                    </div>
+                  </React.Fragment>
+                ))}
+              </div>
+            </header>
+
+            <div style={{ height: 1, background: '#EDE8E1', margin: '0 0 28px' }} />
+
+            {/* Balance board */}
+            <section style={{ marginBottom: 36 }}>
+              <p style={{ fontSize: 12, color: '#A8A29E', fontWeight: 450, marginBottom: 14 }}>Balance board</p>
+              {FRESH_MEMBERS.map(m => (
+                <div key={m.handle} className="member-row">
+                  <Arc pct={0} size={40} />
+                  <Avatar handle={m.handle} initials={m.initials} size={30} ghost={m.pending} />
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ fontSize: 14, fontWeight: m.pending ? 400 : 480, color: m.pending ? '#A8A29E' : '#1C1917' }}>
+                        {m.name}
+                      </span>
+                      {m.isMe && <span style={{ fontSize: 11, color: '#A8A29E' }}>you</span>}
+                    </div>
+                    <div style={{ fontSize: 11.5, color: '#A8A29E', marginTop: 1 }}>
+                      {m.pending ? 'Invitation pending' : `@${m.handle}`}
+                    </div>
+                  </div>
+                  <div className="tabnum" style={{ fontSize: 13, color: '#C4BAB0', textAlign: 'right' }}>
+                    {m.pending ? '—' : '€0.00'}
+                  </div>
+                </div>
+              ))}
+            </section>
+
+            <div style={{ height: 1, background: '#EDE8E1', margin: '0 0 28px' }} />
+
+            {/* Empty expense feed — anticipatory, not apologetic */}
+            <section>
+              <p style={{ fontSize: 12, color: '#A8A29E', fontWeight: 450, marginBottom: 14 }}>
+                The spread · 0 expenses
+              </p>
+              <div style={{ border: '1.5px dashed #DDD6CE', borderRadius: 8, padding: '40px 28px', textAlign: 'center' }}>
+                <p style={{ fontSize: 14, color: '#A8A29E', marginBottom: 6 }}>
+                  Nothing here yet.
+                </p>
+                <p style={{ fontSize: 13, color: '#C4BAB0', marginBottom: 22, lineHeight: 1.6 }}>
+                  Add the first expense when something gets paid.
+                </p>
+                <button style={{
+                  padding: '8px 20px', background: 'none',
+                  border: '1px solid #DDD6CE', borderRadius: 6,
+                  fontSize: 13, color: '#A8A29E', cursor: 'pointer', transition: 'border-color 0.15s, color 0.15s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = HEARTH; e.currentTarget.style.color = HEARTH; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = '#DDD6CE'; e.currentTarget.style.color = '#A8A29E'; }}>
+                  + Add to the spread
+                </button>
+              </div>
+            </section>
+          </div>
+
+          {/* RIGHT */}
+          <div style={{ position: 'sticky', top: 68, display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+            {/* Add to pot — transactional card */}
+            <div style={{ backgroundColor: '#FFF', border: '1px solid #E2D9CE', borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ height: 3, backgroundColor: HEARTH }} />
+              <div style={{ padding: '20px 20px 22px' }}>
+                <div style={{ fontSize: 10.5, fontWeight: 620, letterSpacing: '0.08em', textTransform: 'uppercase', color: '#78716C', marginBottom: 12 }}>
+                  Add to the pot
+                </div>
+                <p style={{ fontSize: 13, color: '#A8A29E', lineHeight: 1.65, marginBottom: 18 }}>
+                  No expenses yet — your equal share will appear once the trip gets going. Add what you'd like to start.
+                </p>
+
+                <label style={{ fontSize: 11.5, color: '#A8A29E', display: 'block', marginBottom: 6 }}>Amount</label>
+                <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #DDD6CE', borderRadius: 6, overflow: 'hidden', marginBottom: 10 }}>
+                  <span style={{ padding: '0 5px 0 12px', fontSize: 14, color: '#A8A29E' }}>€</span>
+                  <input
+                    type="number" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0.00"
+                    className="field-input tabnum"
+                    style={{ flex: 1, padding: '10px 12px 10px 0', fontSize: 15, fontWeight: 500, color: '#1C1917', background: 'transparent', border: 'none', outline: 'none', fontFamily: 'DM Sans, system-ui' }}
+                    aria-label="Amount to add to the pot"
+                  />
+                </div>
+
+                <button style={{
+                  width: '100%', padding: '11px 0',
+                  backgroundColor: amtVal > 0 ? HEARTH : '#E2D9CE',
+                  color: amtVal > 0 ? '#FFF' : '#A8A29E',
+                  border: 'none', borderRadius: 6, fontSize: 14, fontWeight: 580,
+                  cursor: amtVal > 0 ? 'pointer' : 'default', transition: 'background-color 0.15s',
+                }}>
+                  {amtVal > 0 ? `Add €${amtVal.toFixed(2)} to the pot` : 'Add to the pot'}
+                </button>
+              </div>
+            </div>
+
+            {/* Pending invites card — quiet info */}
+            <div style={{ backgroundColor: '#FAF8F5', border: '1px solid #EDE8E1', borderRadius: 10, padding: '14px 16px' }}>
+              <p style={{ fontSize: 12, fontWeight: 520, color: '#4A3D35', marginBottom: 5 }}>2 invites pending</p>
+              <p style={{ fontSize: 12.5, color: '#78716C', lineHeight: 1.55, marginBottom: 12 }}>
+                Tom and Lisa haven't joined yet. Share the link to speed things up.
+              </p>
+              <button style={{ fontSize: 12.5, color: HEARTH, background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontWeight: 500 }}>
+                Copy invite link →
+              </button>
+            </div>
+
+            {/* End date note */}
+            <div style={{ textAlign: 'center', paddingTop: 2 }}>
+              <span style={{ fontSize: 11.5, color: '#C4BAB0' }}>Trip ends Feb 17, 2027</span>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  /* ─── App Shell ────────────────────────────────────────── */
+
+  const ONBOARDING_STEPS = [
+    { id: 1, label: '① Sign in'    },
+    { id: 2, label: '② Handle'     },
+    { id: 3, label: '③ Dashboard'  },
+    { id: 4, label: '④ Create'     },
+    { id: 5, label: '⑤ Fresh pot'  },
+  ];
+
+  function App() {
+    const [view, setView] = useState('landing'); // 'landing' | 'onboarding'
+    const [step, setStep] = useState(1);
+
+    const go = s => { setView('onboarding'); setStep(s); };
+
+    return (
+      <div style={{ fontFamily: 'DM Sans, system-ui, sans-serif', paddingBottom: 52 }}>
+
+        {view === 'landing'          && <LandingPage onStart={() => go(1)} />}
+        {view === 'onboarding' && step === 1 && <SignIn         onNext={() => setStep(2)} />}
+        {view === 'onboarding' && step === 2 && <ClaimHandle    onNext={() => setStep(3)} />}
+        {view === 'onboarding' && step === 3 && <EmptyDashboard onNext={() => setStep(4)} />}
+        {view === 'onboarding' && step === 4 && <CreatePotluck  onNext={() => setStep(5)} />}
+        {view === 'onboarding' && step === 5 && <FreshPotluck />}
+
+        {/* ── Annotation bar ── */}
+        <div style={{
+          position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 500,
+          backgroundColor: '#141010',
+          borderTop: '1px solid rgba(255,255,255,0.06)',
+          padding: '9px 20px',
+          display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'nowrap',
+        }}>
+          <span style={{ fontSize: 10, color: '#4A4440', fontWeight: 600, letterSpacing: '0.1em', textTransform: 'uppercase', marginRight: 10, flexShrink: 0 }}>
+            Preview
+          </span>
+
+          {/* View toggle */}
+          {['landing', 'onboarding'].map(v => (
+            <button key={v}
+              onClick={() => { setView(v); if (v === 'landing') setStep(1); }}
+              style={{
+                fontSize: 12, fontWeight: 480, padding: '4px 11px',
+                color: view === v ? '#F8F5F0' : '#5A5050',
+                backgroundColor: view === v ? 'rgba(255,255,255,0.10)' : 'transparent',
+                border: 'none', borderRadius: 4, cursor: 'pointer', flexShrink: 0,
+              }}>
+              {v === 'landing' ? 'Landing page' : 'Onboarding'}
+            </button>
+          ))}
+
+          {view === 'onboarding' && (
+            <>
+              <div style={{ width: 1, height: 16, backgroundColor: 'rgba(255,255,255,0.08)', margin: '0 6px', flexShrink: 0 }} />
+              {ONBOARDING_STEPS.map(s => (
+                <button key={s.id} onClick={() => setStep(s.id)}
+                  style={{
+                    fontSize: 12, fontWeight: 480, padding: '4px 10px',
+                    color: step === s.id ? '#F8F5F0' : '#5A5050',
+                    backgroundColor: step === s.id ? 'rgba(192,122,56,0.25)' : 'transparent',
+                    border: 'none', borderRadius: 4, cursor: 'pointer', flexShrink: 0,
+                  }}>
+                  {s.label}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
