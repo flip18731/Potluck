@@ -8,13 +8,17 @@ import { INITIA_TESTNET } from "./chain"
 let walletCache: DirectSecp256k1HdWallet | null = null
 let clientCache: SigningStargateClient | null = null
 
-async function getTreasuryClient() {
-  if (!process.env.TREASURY_MNEMONIC) {
+function getTreasuryMnemonic() {
+  const mnemonic = process.env.TREASURY_MNEMONIC
+  if (!mnemonic) {
     throw new Error("TREASURY_MNEMONIC not configured")
   }
+  return mnemonic
+}
 
+async function getTreasuryClient() {
   if (!walletCache) {
-    walletCache = await DirectSecp256k1HdWallet.fromMnemonic(process.env.TREASURY_MNEMONIC, {
+    walletCache = await DirectSecp256k1HdWallet.fromMnemonic(getTreasuryMnemonic(), {
       prefix: INITIA_TESTNET.bech32Prefix,
     })
   }

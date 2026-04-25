@@ -1,12 +1,29 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { InterwovenKitProvider, TESTNET } from "@initia/interwovenkit-react"
-import "@initia/interwovenkit-react/styles.css"
+import {
+  InterwovenKitProvider,
+  TESTNET,
+  initiaPrivyWalletConnector,
+  injectStyles,
+} from "@initia/interwovenkit-react"
+import InterwovenKitStyles from "@initia/interwovenkit-react/styles.js"
+import { createConfig, http, WagmiProvider } from "wagmi"
+import { mainnet } from "wagmi/chains"
 import { Toaster } from "sonner"
-import { useState } from "react"
+
+const wagmiConfig = createConfig({
+  connectors: [initiaPrivyWalletConnector],
+  chains: [mainnet],
+  transports: { [mainnet.id]: http() },
+})
 
 export function Providers({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    injectStyles(InterwovenKitStyles)
+  }, [])
+
   const [queryClient] = useState(() => new QueryClient({
     defaultOptions: {
       queries: {
@@ -18,13 +35,15 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <InterwovenKitProvider
-        {...TESTNET}
-        defaultChainId={process.env.NEXT_PUBLIC_INITIA_CHAIN_ID || "initiation-2"}
-      >
-        {children}
-        <Toaster position="bottom-right" richColors />
-      </InterwovenKitProvider>
+      <WagmiProvider config={wagmiConfig}>
+        <InterwovenKitProvider
+          {...TESTNET}
+          defaultChainId={process.env.NEXT_PUBLIC_INITIA_CHAIN_ID ?? "initiation-2"}
+        >
+          {children}
+          <Toaster position="bottom-right" richColors />
+        </InterwovenKitProvider>
+      </WagmiProvider>
     </QueryClientProvider>
   )
 }

@@ -23,7 +23,7 @@ export function ContributionModal({ poolId, poolName, denom, onSuccess, trigger 
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const treasuryAddress = process.env.NEXT_PUBLIC_TREASURY_ADDRESS!
+  const treasuryAddress = process.env.NEXT_PUBLIC_TREASURY_ADDRESS
 
   useEffect(() => {
     if (!open) return
