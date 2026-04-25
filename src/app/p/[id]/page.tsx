@@ -11,7 +11,7 @@ import { BalanceBoard } from "@/components/potluck/BalanceBoard"
 import { ExpenseFeed } from "@/components/potluck/ExpenseFeed"
 import { AddExpenseModal } from "@/components/potluck/AddExpenseModal"
 import { AutoSignPrompt } from "@/components/potluck/AutoSignPrompt"
-import { fromMicro, toMicro, INITIA_TESTNET } from "@/lib/initia/chain"
+import { fromMicro, parseMicroAmount, INITIA_TESTNET } from "@/lib/initia/chain"
 import { isAutoSignEnabled, autoSignExpiresIn, formatExpiry } from "@/lib/initia/autosign"
 import { toast } from "sonner"
 import { HEARTH } from "@/lib/design/tokens"
@@ -66,6 +66,7 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
   const [amount, setAmount] = useState("")
   const [contributing, setContributing] = useState(false)
   const [contributed, setContributed] = useState(false)
+  const [lastContributionMicro, setLastContributionMicro] = useState<bigint | null>(null)
   const [inputFocused, setInputFocused] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -107,17 +108,17 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
   const myContributed = myBalance ? BigInt(myBalance.contributed) : 0n
   const myRemaining = myShare > myContributed ? myShare - myContributed : 0n
 
-  const amountVal = parseFloat(amount) || 0
+  const amountMicro = parseMicroAmount(amount)
   const treasuryAddress = process.env.NEXT_PUBLIC_TREASURY_ADDRESS
 
   const handleContribute = async () => {
     if (!address) { toast.error("Connect your account first"); return }
-    if (amountVal <= 0) { toast.error("Enter a valid amount"); return }
-    if (!treasuryAddress) { toast.error("Treasury not configured"); return }
+    if (!amountMicro || amountMicro <= 0n) { toast.error("Enter a valid amount"); return }
+    if (!treasuryAddress) { toast.error("Pool account not configured"); return }
 
     setContributing(true)
     try {
-      const amountMicro = toMicro(amount).toString()
+      const amountMicroStr = amountMicro.toString()
       const { transactionHash } = await requestTxBlock({
         messages: [
           {
@@ -125,7 +126,7 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
             value: {
               fromAddress: address,
               toAddress: treasuryAddress,
-              amount: [{ denom: pool?.denom || "uinit", amount: amountMicro }],
+              amount: [{ denom: pool?.denom || "uinit", amount: amountMicroStr }],
             },
           },
         ],
@@ -137,14 +138,15 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
         body: JSON.stringify({
           memberAddress: address,
           memberUsername: username || null,
-          amount: amountMicro,
+          amount: amountMicroStr,
           txHash: transactionHash,
         }),
       })
 
       setContributed(true)
+      setLastContributionMicro(amountMicro)
       queryClient.invalidateQueries({ queryKey: ["pool", id] })
-      toast.success(`Brought ${amount} INIT to the table!`, {
+      toast.success(`Brought ${fromMicro(amountMicro)} INIT to the table!`, {
         action: {
           label: "View",
           onClick: () => window.open(`${INITIA_TESTNET.explorerUrl}/txs/${transactionHash}`, "_blank"),
@@ -519,11 +521,11 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
                     <CTABtn
                       full
                       onClick={handleContribute}
-                      disabled={contributing || amountVal <= 0}
+                      disabled={contributing || !amountMicro || amountMicro <= 0n}
                     >
                       {contributing
                         ? "Sending…"
-                        : `Bring ${amountVal > 0 ? amountVal.toFixed(2) : "0"} INIT to the pot`}
+                        : `Bring ${amountMicro && amountMicro > 0n ? fromMicro(amountMicro) : "0"} INIT to the pot`}
                     </CTABtn>
 
                     <p style={{ textAlign: "center", fontSize: 11.5, color: "#C4BAB0", margin: "10px 0 0" }}>
@@ -549,7 +551,7 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
                       </svg>
                     </div>
                     <div style={{ fontSize: 14, fontWeight: 520, color: "#1C1917", marginBottom: 3 }}>
-                      {amountVal.toFixed(2)} INIT on its way
+                      {fromMicro(lastContributionMicro ?? 0n)} INIT on its way
                     </div>
                     <div style={{ fontSize: 12, color: "#A8A29E" }}>
                       The pot will update in a moment
@@ -601,7 +603,7 @@ export default function PotluckDetailPage({ params }: { params: Promise<{ id: st
                         onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
                         onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
                       >
-                        View settlement tx ↗
+                        View settlement receipt ↗
                       </a>
                     </>
                   )}

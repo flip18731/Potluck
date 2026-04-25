@@ -99,7 +99,7 @@ export function BalanceBoard({ balances, denom, poolStatus: _poolStatus, current
               </div>
 
               {/* Brought — hidden on mobile */}
-              <div className="desktop-hidden" style={{ textAlign: "right", flexShrink: 0, minWidth: 64 }}>
+              <div className="mobile-hidden" style={{ textAlign: "right", flexShrink: 0, minWidth: 64 }}>
                 <div style={{ fontSize: 11, color: "#C4BAB0", marginBottom: 2 }}>brought</div>
                 <div className="tabular" style={{ fontSize: 13, color: "#A8A29E" }}>
                   {fromMicro(b.contributed)} INIT

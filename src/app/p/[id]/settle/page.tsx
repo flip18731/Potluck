@@ -59,6 +59,9 @@ function DistRow({
   const handle = balance.username || balance.address.slice(0, 8)
   const displayName = balance.username || undefined
   const settling = phase === "settling"
+  const routingLabel = amount > 0n
+    ? (isMe ? "Mantle" : rowIdx === 0 ? "Osmosis" : null)
+    : null
 
   return (
     <div
@@ -97,6 +100,37 @@ function DistRow({
         >
           {isZero ? "—" : `+${fromMicro(amount)} INIT`}
         </div>
+
+        {routingLabel && (
+          <div
+            style={{
+              marginTop: 3,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              gap: 5,
+            }}
+          >
+            <span style={{ fontSize: 11, color: "#B8B0A8" }}>→ {routingLabel}</span>
+            {isMe && phase === "pre" && (
+              <button
+                style={{
+                  fontSize: 11,
+                  color: "#C9C1B8",
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  cursor: "pointer",
+                  textDecoration: "underline",
+                  textDecorationColor: "#DDD6CE",
+                  fontFamily: "inherit",
+                }}
+              >
+                change
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -385,7 +419,7 @@ export default function SettlePage({ params }: { params: Promise<{ id: string }>
                       onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
                       onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
                     >
-                      View tx ↗
+                      View receipt ↗
                     </a>
                   </>
                 )}

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { useInterwovenKit } from "@initia/interwovenkit-react"
 import { CTABtn } from "@/components/ui/CTABtn"
 import { toast } from "sonner"
-import { toMicro, fromMicro, INITIA_TESTNET } from "@/lib/initia/chain"
+import { parseMicroAmount, fromMicro, INITIA_TESTNET } from "@/lib/initia/chain"
 import { isAutoSignEnabled } from "@/lib/initia/autosign"
 import { HEARTH } from "@/lib/design/tokens"
 
@@ -21,9 +21,11 @@ export function ContributionModal({ poolId, poolName, denom, onSuccess, trigger 
   const [open, setOpen] = useState(false)
   const [amount, setAmount] = useState("")
   const [loading, setLoading] = useState(false)
+  const [lastContributionMicro, setLastContributionMicro] = useState<bigint | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const treasuryAddress = process.env.NEXT_PUBLIC_TREASURY_ADDRESS
+  const amountMicro = parseMicroAmount(amount)
 
   useEffect(() => {
     if (!open) return
@@ -35,12 +37,12 @@ export function ContributionModal({ poolId, poolName, denom, onSuccess, trigger 
 
   const handleContribute = async () => {
     if (!address) { toast.error("Connect your account first"); return }
-    if (!amount || parseFloat(amount) <= 0) { toast.error("Enter a valid amount"); return }
-    if (!treasuryAddress) { toast.error("Treasury not configured"); return }
+    if (!amountMicro || amountMicro <= 0n) { toast.error("Enter a valid amount"); return }
+    if (!treasuryAddress) { toast.error("Pool account not configured"); return }
 
     setLoading(true)
     try {
-      const amountMicro = toMicro(amount).toString()
+      const amountMicroStr = amountMicro.toString()
 
       const { transactionHash } = await requestTxBlock({
         messages: [
@@ -49,7 +51,7 @@ export function ContributionModal({ poolId, poolName, denom, onSuccess, trigger 
             value: {
               fromAddress: address,
               toAddress: treasuryAddress,
-              amount: [{ denom: denom || "uinit", amount: amountMicro }],
+              amount: [{ denom: denom || "uinit", amount: amountMicroStr }],
             },
           },
         ],
@@ -61,12 +63,13 @@ export function ContributionModal({ poolId, poolName, denom, onSuccess, trigger 
         body: JSON.stringify({
           memberAddress: address,
           memberUsername: username || null,
-          amount: amountMicro,
+          amount: amountMicroStr,
           txHash: transactionHash,
         }),
       })
 
-      toast.success(`Brought ${amount} INIT to the table!`, {
+      setLastContributionMicro(amountMicro)
+      toast.success(`Brought ${fromMicro(amountMicro)} INIT to the table!`, {
         description: `Tx: ${transactionHash.slice(0, 20)}…`,
         action: {
           label: "View",
@@ -84,7 +87,6 @@ export function ContributionModal({ poolId, poolName, denom, onSuccess, trigger 
   }
 
   const autoSign = isAutoSignEnabled(poolId)
-  const amountVal = parseFloat(amount) || 0
 
   return (
     <>
@@ -149,7 +151,7 @@ export function ContributionModal({ poolId, poolName, denom, onSuccess, trigger 
 
               <p style={{ fontSize: 13, color: "#A8A29E", marginBottom: 18 }}>
                 Contributing to <strong style={{ color: "#78716C" }}>{poolName}</strong>.
-                Funds are held on-chain in the Potluck treasury.
+                Everyone can see updates as soon as your contribution is confirmed.
               </p>
 
               {/* Amount input */}
@@ -207,13 +209,17 @@ export function ContributionModal({ poolId, poolName, denom, onSuccess, trigger 
               <CTABtn
                 full
                 onClick={handleContribute}
-                disabled={loading || amountVal <= 0}
+                disabled={loading || !amountMicro || amountMicro <= 0n}
               >
-                {loading ? "Sending…" : `Bring ${amountVal > 0 ? amountVal.toFixed(2) : "0"} INIT to the pot`}
+                {loading
+                  ? "Sending…"
+                  : `Bring ${amountMicro && amountMicro > 0n ? fromMicro(amountMicro) : "0"} INIT to the pot`}
               </CTABtn>
 
               <p style={{ textAlign: "center", fontSize: 11.5, color: "#C4BAB0", marginTop: 10 }}>
-                Settles instantly · visible to all members
+                {lastContributionMicro && lastContributionMicro > 0n
+                  ? `${fromMicro(lastContributionMicro)} INIT on its way`
+                  : "Visible to all members"}
               </p>
             </div>
           </div>

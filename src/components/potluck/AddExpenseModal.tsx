@@ -5,7 +5,7 @@ import { useInterwovenKit } from "@initia/interwovenkit-react"
 import { Avatar } from "@/components/ui/Avatar"
 import { CTABtn } from "@/components/ui/CTABtn"
 import { toast } from "sonner"
-import { toMicro, fromMicro } from "@/lib/initia/chain"
+import { parseMicroAmount, fromMicro } from "@/lib/initia/chain"
 import { formatIdentity } from "@/lib/initia/username"
 import { HEARTH } from "@/lib/design/tokens"
 
@@ -30,6 +30,7 @@ export function AddExpenseModal({ poolId, members, denom, onSuccess, trigger }: 
   const [paidByAddress, setPaidByAddress] = useState(address || members[0]?.address || "")
   const [splitBetween, setSplitBetween] = useState<string[]>(members.map((m) => m.address))
   const [loading, setLoading] = useState(false)
+  const amountMicro = parseMicroAmount(amount)
 
   useEffect(() => {
     if (!open) return
@@ -46,13 +47,13 @@ export function AddExpenseModal({ poolId, members, denom, onSuccess, trigger }: 
 
   const handleSubmit = async () => {
     if (!description.trim()) { toast.error("Add a description"); return }
-    if (!amount || parseFloat(amount) <= 0) { toast.error("Enter a valid amount"); return }
+    if (!amountMicro || amountMicro <= 0n) { toast.error("Enter a valid amount"); return }
     if (splitBetween.length === 0) { toast.error("Select at least one person to split between"); return }
     if (!paidByAddress) { toast.error("Select who paid"); return }
 
     setLoading(true)
     try {
-      const amountMicro = toMicro(amount).toString()
+      const amountMicroStr = amountMicro.toString()
       const paidByMember = members.find((m) => m.address === paidByAddress)
 
       const res = await fetch(`/api/pools/${poolId}/expense`, {
@@ -60,7 +61,7 @@ export function AddExpenseModal({ poolId, members, denom, onSuccess, trigger }: 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           description: description.trim(),
-          amount: amountMicro,
+          amount: amountMicroStr,
           paidByAddress,
           paidByUsername: paidByMember?.username ?? null,
           splitBetween,
@@ -87,8 +88,8 @@ export function AddExpenseModal({ poolId, members, denom, onSuccess, trigger }: 
     }
   }
 
-  const perSplit = amount && splitBetween.length > 0
-    ? fromMicro((toMicro(amount) / BigInt(splitBetween.length)).toString())
+  const perSplit = amountMicro && splitBetween.length > 0
+    ? fromMicro((amountMicro / BigInt(splitBetween.length)).toString())
     : null
 
   return (
@@ -277,7 +278,7 @@ export function AddExpenseModal({ poolId, members, denom, onSuccess, trigger }: 
               {/* Info note */}
               <div style={{ backgroundColor: "#FDF3E8", border: "1px solid #F0E0C8", borderRadius: 7, padding: "10px 12px" }}>
                 <p style={{ fontSize: 12, color: "#78716C", margin: 0, lineHeight: 1.5 }}>
-                  The treasury will send {amount || "0"} INIT to{" "}
+                  The shared pot will send {amountMicro ? fromMicro(amountMicro) : "0"} INIT to{" "}
                   <strong style={{ color: "#4A3D35" }}>
                     {formatIdentity(paidByAddress, members.find(m => m.address === paidByAddress)?.username ?? null)}
                   </strong>{" "}

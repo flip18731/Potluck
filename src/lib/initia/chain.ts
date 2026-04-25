@@ -30,9 +30,23 @@ export const TREASURY_ADDRESS =
 // Amount helpers — all on-chain values are in uinit (micro), display in INIT
 export const MICRO = 1_000_000n
 
+export function parseMicroAmount(amount: string): bigint | null {
+  const normalized = amount.trim()
+  if (!/^\d+(\.\d{0,6})?$/.test(normalized)) return null
+
+  const [wholePart, fracPart = ""] = normalized.split(".")
+  const whole = BigInt(wholePart)
+  const fraction = BigInt(fracPart.padEnd(6, "0") || "0")
+  return whole * MICRO + fraction
+}
+
 export function toMicro(amount: string | number): bigint {
-  const n = typeof amount === "string" ? parseFloat(amount) : amount
-  return BigInt(Math.round(n * 1_000_000))
+  const raw = typeof amount === "number" ? amount.toString() : amount
+  const parsed = parseMicroAmount(raw)
+  if (parsed === null) {
+    throw new Error("Invalid amount format")
+  }
+  return parsed
 }
 
 export function fromMicro(uamount: bigint | string | number): string {

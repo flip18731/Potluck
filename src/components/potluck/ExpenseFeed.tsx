@@ -1,7 +1,7 @@
 "use client"
 
 import { Avatar } from "@/components/ui/Avatar"
-import { fromMicro, INITIA_TESTNET } from "@/lib/initia/chain"
+import { fromMicro } from "@/lib/initia/chain"
 import { formatDistanceToNow } from "date-fns"
 
 interface Expense {
@@ -47,8 +47,6 @@ export function ExpenseFeed({ expenses, contributions, members, currentUserAddre
     ...contributions.map((c) => ({ type: "contribution" as const, data: c, date: new Date(c.created_at) })),
   ].sort((a, b) => b.date.getTime() - a.date.getTime())
 
-  const getMember = (address: string) => members.find((m) => m.address === address)
-
   if (feed.length === 0) {
     return (
       <div style={{ padding: "24px 0", textAlign: "center", fontSize: 13, color: "#C4BAB0" }}>
@@ -87,16 +85,7 @@ export function ExpenseFeed({ expenses, contributions, members, currentUserAddre
                 <div style={{ fontSize: 12, color: "#A8A29E", marginTop: 2 }}>
                   {formatDistanceToNow(item.date, { addSuffix: true })}
                   {" · "}
-                  <a
-                    href={`${INITIA_TESTNET.explorerUrl}/txs/${c.tx_hash}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ color: "#C07A38", textDecoration: "none" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.textDecoration = "underline")}
-                    onMouseLeave={(e) => (e.currentTarget.style.textDecoration = "none")}
-                  >
-                    verify ↗
-                  </a>
+                  added to the pot
                 </div>
               </div>
               <div className="tabular" style={{ fontSize: 14, fontWeight: 500, color: "#1C1917", flexShrink: 0 }}>
@@ -106,8 +95,7 @@ export function ExpenseFeed({ expenses, contributions, members, currentUserAddre
           )
         }
 
-        const e = item.data
-        const payer = getMember(e.paid_by_address)
+  const e = item.data
         const handle = e.paid_by_username || e.paid_by_address.slice(0, 8)
         const displayName = e.paid_by_username || undefined
         const isMe = e.paid_by_address === currentUserAddress
@@ -134,21 +122,7 @@ export function ExpenseFeed({ expenses, contributions, members, currentUserAddre
                 {isMe ? "You paid" : `${displayName || handle} paid`}
                 {" · "}split {e.split_between.length} ways
                 {" · "}{formatDistanceToNow(item.date, { addSuffix: true })}
-                {e.reimbursed && e.reimburse_tx_hash && (
-                  <>
-                    {" · "}
-                    <a
-                      href={`${INITIA_TESTNET.explorerUrl}/txs/${e.reimburse_tx_hash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={{ color: "#C07A38", textDecoration: "none" }}
-                      onMouseEnter={(ev) => (ev.currentTarget.style.textDecoration = "underline")}
-                      onMouseLeave={(ev) => (ev.currentTarget.style.textDecoration = "none")}
-                    >
-                      reimbursed ↗
-                    </a>
-                  </>
-                )}
+                {e.reimbursed && " · settled"}
               </div>
             </div>
             <div style={{ textAlign: "right", flexShrink: 0 }}>
@@ -156,9 +130,9 @@ export function ExpenseFeed({ expenses, contributions, members, currentUserAddre
                 {fromMicro(e.amount)} INIT
               </div>
               {e.reimbursed ? (
-                <div style={{ fontSize: 11, color: "#A8A29E", marginTop: 2 }}>Reimbursed</div>
+                <div style={{ fontSize: 11, color: "#A8A29E", marginTop: 2 }}>Settled</div>
               ) : (
-                <div style={{ fontSize: 11, color: "#C4BAB0", marginTop: 2 }}>Pending</div>
+                <div style={{ fontSize: 11, color: "#C4BAB0", marginTop: 2 }}>In progress</div>
               )}
             </div>
           </div>
