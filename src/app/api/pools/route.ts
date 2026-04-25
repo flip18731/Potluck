@@ -14,7 +14,8 @@ export async function GET(req: NextRequest) {
     .limit(50)
 
   if (member) {
-    query = query.contains("members", JSON.stringify([{ address: member }]))
+    // Use raw filter for JSONB array containment – checks if any element has this address
+    query = query.filter("members", "cs", `[{"address":"${member}"}]`)
   }
 
   const { data, error } = await query
@@ -33,14 +34,18 @@ export async function POST(req: NextRequest) {
 
   const db = getServiceSupabase()
 
-  // Build member list — creator is always included
+  // Build member list — creator is always first
+  const seen = new Set<string>()
   const allMembers: Array<{ address: string; username: string | null }> = []
-  if (!members.find((m: { address: string }) => m.address === creatorAddress)) {
-    allMembers.push({ address: creatorAddress, username: creatorUsername ?? null })
-  }
-  for (const m of members) {
-    if (!allMembers.find((am) => am.address === m.address)) {
+
+  // Creator always included first
+  allMembers.push({ address: creatorAddress, username: creatorUsername ?? null })
+  seen.add(creatorAddress)
+
+  for (const m of (members ?? [])) {
+    if (!seen.has(m.address)) {
       allMembers.push({ address: m.address, username: m.username ?? null })
+      seen.add(m.address)
     }
   }
 

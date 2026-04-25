@@ -3,13 +3,11 @@
 import { useInterwovenKit } from "@initia/interwovenkit-react"
 import { useQuery } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
-import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { UsernameBadge } from "@/components/identity/UsernameBadge"
-import { formatAmount, fromMicro } from "@/lib/initia/chain"
-import { ChefHat, Plus, ExternalLink, Clock } from "lucide-react"
+import { ChefHat, Plus, ChevronRight, Clock } from "lucide-react"
 import Link from "next/link"
 import { DbPool } from "@/lib/potluck/types"
 import { formatDistanceToNow } from "date-fns"
@@ -33,9 +31,7 @@ export default function DashboardPage() {
   const router = useRouter()
   const { data: pools, isLoading } = useMyPotlucks(address)
 
-  useEffect(() => {
-    if (!address) openConnect()
-  }, [address, openConnect])
+  // Don't auto-pop the connect modal — let users see the page and click connect themselves
 
   return (
     <div className="min-h-screen bg-zinc-50">
@@ -131,7 +127,7 @@ export default function DashboardPage() {
                         </div>
                       </div>
                       <div className="text-right ml-4">
-                        <ExternalLink className="h-4 w-4 text-zinc-400" />
+                        <ChevronRight className="h-4 w-4 text-zinc-400" />
                       </div>
                     </div>
                   </CardContent>

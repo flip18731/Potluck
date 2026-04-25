@@ -2,7 +2,7 @@
 // Used for reimbursing expenses and settling balances on behalf of the pool.
 
 import { DirectSecp256k1HdWallet } from "@cosmjs/proto-signing"
-import { SigningStargateClient, coins } from "@cosmjs/stargate"
+import { SigningStargateClient, GasPrice, coins } from "@cosmjs/stargate"
 import { INITIA_TESTNET } from "./chain"
 
 let walletCache: DirectSecp256k1HdWallet | null = null
@@ -23,12 +23,7 @@ async function getTreasuryClient() {
     clientCache = await SigningStargateClient.connectWithSigner(
       INITIA_TESTNET.rpcUrl,
       walletCache,
-      {
-        gasPrice: {
-          denom: INITIA_TESTNET.feeDenom,
-          amount: { atomics: "15000", fractionalDigits: 6 } as any,
-        },
-      }
+      { gasPrice: GasPrice.fromString(`0.015${INITIA_TESTNET.feeDenom}`) }
     )
   }
 

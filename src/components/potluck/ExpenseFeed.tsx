@@ -2,8 +2,7 @@
 
 import { UsernameBadge } from "@/components/identity/UsernameBadge"
 import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
-import { formatAmount, fromMicro, INITIA_TESTNET } from "@/lib/initia/chain"
+import { fromMicro, INITIA_TESTNET } from "@/lib/initia/chain"
 import { formatIdentity } from "@/lib/initia/username"
 import { formatDistanceToNow } from "date-fns"
 import { CheckCircle, Clock, Receipt, ExternalLink, ArrowUpRight } from "lucide-react"
